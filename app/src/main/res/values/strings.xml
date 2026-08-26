@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">SchemaLens</string>
+    <string name="app_tagline">AirTrace DB · Mobile Schema Impact Analyzer</string>
+</resources>
