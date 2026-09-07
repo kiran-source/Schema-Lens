@@ -69,9 +69,19 @@ CREATE TABLE users (
 CREATE TABLE orders (
     id VARCHAR(36) PRIMARY KEY,
     user_id VARCHAR(36) NOT NULL,
+    product_id VARCHAR(36) NOT NULL,
     total_amount DECIMAL(10, 2) NOT NULL,
     status VARCHAR(50) DEFAULT 'pending',
-    FOREIGN KEY (user_id) REFERENCES users(id)
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    FOREIGN KEY (product_id) REFERENCES products(id)
+);
+
+CREATE TABLE products (
+    id VARCHAR(36) PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    sku VARCHAR(50) UNIQUE,
+    price DECIMAL(10, 2) NOT NULL,
+    stock_count INT DEFAULT 0
 );
 
 CREATE TABLE audit_logs (
@@ -83,3 +93,4 @@ CREATE TABLE audit_logs (
 );
 """.trimIndent()
 }
+

@@ -3,6 +3,7 @@ package com.schemalens.app.ui.viewmodel
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
 import androidx.lifecycle.ViewModel
@@ -11,6 +12,7 @@ import com.schemalens.app.BuildConfig
 import com.schemalens.app.data.AppZone
 import com.schemalens.app.data.AssessmentResult
 import com.schemalens.app.data.CallSite
+import com.schemalens.app.data.RiskSeverity
 import com.schemalens.app.data.SampleData
 import com.schemalens.app.data.SchemaEntity
 import com.schemalens.app.network.AiAssessmentClient
@@ -35,6 +37,7 @@ data class MainUiState(
     // Schema Capture State (Red Light)
     val capturedImageBitmap: Bitmap? = null,
     val extractedIdentifiers: List<String> = emptyList(),
+    val customIdentifierInput: String = "",
     val isOcrLoading: Boolean = false,
     val ocrError: String? = null,
 
@@ -45,6 +48,8 @@ data class MainUiState(
 
     // Call Site Trace State (Red Light)
     val callSites: List<CallSite> = emptyList(),
+    val callSiteSearchQuery: String = "",
+    val selectedSeverityFilter: RiskSeverity? = null,
     val hasPerformedTrace: Boolean = false,
     val traceError: String? = null,
 
@@ -77,7 +82,8 @@ class MainViewModel(
     init {
         // Initialize schema entities from initial DDL
         val initialEntities = SchemaParser.parseSchema(SampleData.DEFAULT_SCHEMA_DDL)
-        _uiState.update { it.copy(schemaEntities = initialEntities) }
+        val initialIdentifiers = TextRecognitionHelper.extractIdentifiers(SampleData.DEFAULT_SCHEMA_DDL)
+        _uiState.update { it.copy(schemaEntities = initialEntities, extractedIdentifiers = initialIdentifiers) }
 
         // Perform initial trace so judges see immediate working data on launch
         performTrace()
@@ -101,7 +107,49 @@ class MainViewModel(
 
     fun updateSchemaDdl(ddl: String) {
         val entities = SchemaParser.parseSchema(ddl)
-        _uiState.update { it.copy(schemaDdl = ddl, schemaEntities = entities) }
+        val identifiers = TextRecognitionHelper.extractIdentifiers(ddl)
+        _uiState.update { it.copy(schemaDdl = ddl, schemaEntities = entities, extractedIdentifiers = identifiers) }
+    }
+
+    fun updateCustomIdentifierInput(text: String) {
+        _uiState.update { it.copy(customIdentifierInput = text) }
+    }
+
+    fun addCustomIdentifier(name: String = "") {
+        val target = if (name.isNotBlank()) name.trim() else _uiState.value.customIdentifierInput.trim()
+        if (target.isBlank()) return
+
+        _uiState.update { state ->
+            if (!state.extractedIdentifiers.contains(target)) {
+                state.copy(
+                    extractedIdentifiers = state.extractedIdentifiers + target,
+                    customIdentifierInput = ""
+                )
+            } else {
+                state.copy(customIdentifierInput = "")
+            }
+        }
+        showSnackbar("Added identifier: '$target'")
+    }
+
+    fun updateCallSiteSearchQuery(query: String) {
+        _uiState.update { it.copy(callSiteSearchQuery = query) }
+    }
+
+    fun setSelectedSeverityFilter(severity: RiskSeverity?) {
+        _uiState.update { it.copy(selectedSeverityFilter = severity) }
+    }
+
+    fun applyChangePreset(presetText: String) {
+        _uiState.update { state ->
+            val updated = if (state.changeNotes.isBlank()) {
+                presetText
+            } else {
+                "${state.changeNotes.trim()} $presetText"
+            }
+            state.copy(changeNotes = updated)
+        }
+        showSnackbar("Appended preset to change notes")
     }
 
     fun updateAiConfig(provider: AiProvider, newKey: String, endpoint: String = "") {
@@ -355,7 +403,7 @@ class MainViewModel(
         }
     }
 
-    // --- Office Kit Clipboard Bridge (Green Light) ---
+    // --- Office Kit Clipboard Bridge & Export Hub (Green Light) ---
 
     fun copyOrmPatchToClipboard(context: Context) {
         val patch = _uiState.value.assessmentResult?.ormPatch ?: ""
@@ -365,19 +413,62 @@ class MainViewModel(
         val clip = ClipData.newPlainText("SchemaLens ORM Patch", patch)
         clipboard.setPrimaryClip(clip)
 
-        showSnackbar("Copied — switch to Office Kit and paste into your IDE")
+        showSnackbar("Copied to Clipboard — Office Kit Ready to Paste into Desktop IDE")
+    }
+
+    fun exportPatchFile(context: Context) {
+        val patch = _uiState.value.assessmentResult?.ormPatch ?: ""
+        if (patch.isBlank()) {
+            showSnackbar("No ORM patch generated yet — run assessment first")
+            return
+        }
+
+        try {
+            val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_SUBJECT, "schemalens_migration.patch")
+                putExtra(Intent.EXTRA_TEXT, patch)
+                putExtra(Intent.EXTRA_TITLE, "SchemaLens Migration Patch")
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            val chooser = Intent.createChooser(sendIntent, "Export SchemaLens .patch file")
+            chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            context.startActivity(chooser)
+            showSnackbar("Exporting .patch file...")
+        } catch (e: Exception) {
+            showSnackbar("Export failed: ${e.localizedMessage}")
+        }
     }
 
     // --- Preset Loaders ---
 
+    fun loadSampleSchema() {
+        val sampleDdl = SampleData.DEFAULT_SCHEMA_DDL
+        val parsedEntities = SchemaParser.parseSchema(sampleDdl)
+        val extractedIds = TextRecognitionHelper.extractIdentifiers(sampleDdl)
+        _uiState.update {
+            it.copy(
+                schemaDdl = sampleDdl,
+                schemaEntities = parsedEntities,
+                extractedIdentifiers = extractedIds,
+                ocrError = null
+            )
+        }
+        showSnackbar("Loaded sample schema (Users, Orders, Products tables)")
+    }
+
     fun loadSamplePreset() {
+        val sampleDdl = SampleData.DEFAULT_SCHEMA_DDL
+        val parsedEntities = SchemaParser.parseSchema(sampleDdl)
+        val extractedIds = TextRecognitionHelper.extractIdentifiers(sampleDdl)
         _uiState.update {
             it.copy(
                 packageName = SampleData.DEFAULT_PACKAGE,
                 changeNotes = SampleData.DEFAULT_CHANGE_NOTES,
                 codeBuffer = SampleData.DEFAULT_CODE_BUFFER,
-                schemaDdl = SampleData.DEFAULT_SCHEMA_DDL,
-                schemaEntities = SchemaParser.parseSchema(SampleData.DEFAULT_SCHEMA_DDL),
+                schemaDdl = sampleDdl,
+                schemaEntities = parsedEntities,
+                extractedIdentifiers = extractedIds,
                 assessmentResult = null,
                 traceError = null,
                 assessmentError = null
