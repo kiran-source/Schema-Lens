@@ -1,8 +1,11 @@
 package com.schemalens.app.ui.components
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,11 +16,19 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -28,6 +39,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.schemalens.app.data.CallSite
 import com.schemalens.app.data.RiskSeverity
+import com.schemalens.app.ui.theme.AccentTeal
 import com.schemalens.app.ui.theme.BorderDark
 import com.schemalens.app.ui.theme.PanelDark
 import com.schemalens.app.ui.theme.PanelNested
@@ -48,6 +60,7 @@ fun CallSiteCard(
     site: CallSite,
     modifier: Modifier = Modifier
 ) {
+    var isExpanded by remember { mutableStateOf(false) }
     val severity = site.verdict?.sev ?: RiskSeverity.PENDING
 
     val (accentColor, chipBg, chipText) = when (severity) {
@@ -59,15 +72,17 @@ fun CallSiteCard(
 
     val animatedBorderColor by animateColorAsState(
         targetValue = accentColor,
+        animationSpec = tween(400),
         label = "cardBorderAccent"
     )
 
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
+            .clip(RoundedCornerShape(12.dp))
             .background(PanelDark)
-            .border(1.dp, BorderDark, RoundedCornerShape(10.dp))
+            .border(1.dp, BorderDark, RoundedCornerShape(12.dp))
+            .clickable { isExpanded = !isExpanded }
     ) {
         Row(
             modifier = Modifier
@@ -85,7 +100,7 @@ fun CallSiteCard(
             Column(
                 modifier = Modifier
                     .weight(1f)
-                    .padding(12.dp)
+                    .padding(14.dp)
             ) {
                 // Header: File, Line, and Verdict Chip
                 Row(
@@ -113,20 +128,31 @@ fun CallSiteCard(
                         )
                     }
 
-                    // Verdict Badge
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(4.dp))
-                            .background(chipBg)
-                            .border(0.8.dp, accentColor.copy(alpha = 0.6f), RoundedCornerShape(4.dp))
-                            .padding(horizontal = 6.dp, vertical = 2.dp)
-                    ) {
-                        Text(
-                            text = chipText,
-                            color = accentColor,
-                            fontSize = 9.sp,
-                            fontFamily = FontFamily.Monospace,
-                            fontWeight = FontWeight.Bold
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        // Verdict Badge
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(chipBg)
+                                .border(0.8.dp, accentColor.copy(alpha = 0.6f), RoundedCornerShape(4.dp))
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                        ) {
+                            Text(
+                                text = chipText,
+                                color = accentColor,
+                                fontSize = 9.sp,
+                                fontFamily = FontFamily.Monospace,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.width(6.dp))
+
+                        Icon(
+                            imageVector = if (isExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                            contentDescription = if (isExpanded) "Collapse" else "Expand",
+                            tint = TextDim,
+                            modifier = Modifier.size(18.dp)
                         )
                     }
                 }
@@ -139,7 +165,7 @@ fun CallSiteCard(
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(6.dp))
                         .background(PanelNested)
-                        .padding(horizontal = 10.dp, vertical = 6.dp)
+                        .padding(horizontal = 10.dp, vertical = 8.dp)
                 ) {
                     Text(
                         text = site.lineText,
@@ -181,7 +207,55 @@ fun CallSiteCard(
                         fontFamily = FontFamily.Monospace
                     )
                 }
+
+                // Expandable Details
+                AnimatedVisibility(visible = isExpanded) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 10.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(1.dp)
+                                .background(BorderDark)
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        DetailRow("Site Index", "#${site.index}")
+                        DetailRow("Target Symbol", site.matchedIdentifier)
+                        DetailRow("Status", severity.name)
+                        if (site.file != null) {
+                            DetailRow("Source File", site.file)
+                        }
+                    }
+                }
             }
         }
+    }
+}
+
+@Composable
+private fun DetailRow(label: String, value: String) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 2.dp),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(
+            text = label,
+            color = TextDim,
+            fontSize = 11.sp,
+            fontFamily = FontFamily.Monospace
+        )
+        Text(
+            text = value,
+            color = AccentTeal,
+            fontSize = 11.sp,
+            fontFamily = FontFamily.Monospace,
+            fontWeight = FontWeight.Medium
+        )
     }
 }

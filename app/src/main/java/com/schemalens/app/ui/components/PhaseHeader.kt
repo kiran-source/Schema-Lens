@@ -1,6 +1,8 @@
 package com.schemalens.app.ui.components
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -14,7 +16,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
@@ -26,7 +27,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -35,6 +36,9 @@ import com.schemalens.app.data.AppZone
 import com.schemalens.app.ui.theme.AccentTeal
 import com.schemalens.app.ui.theme.BgDark
 import com.schemalens.app.ui.theme.BorderDark
+import com.schemalens.app.ui.theme.GradientEnd
+import com.schemalens.app.ui.theme.GradientMid
+import com.schemalens.app.ui.theme.GradientStart
 import com.schemalens.app.ui.theme.PanelDark
 import com.schemalens.app.ui.theme.PanelNested
 import com.schemalens.app.ui.theme.RiskBreaking
@@ -54,28 +58,31 @@ fun PhaseHeader(
         modifier = modifier
             .fillMaxWidth()
             .background(PanelDark)
-            .border(width = 1.dp, color = BorderDark, shape = RoundedCornerShape(bottomStart = 14.dp, bottomEnd = 14.dp))
-            .padding(horizontal = 16.dp, vertical = 12.dp)
+            .padding(horizontal = 16.dp, vertical = 10.dp)
     ) {
-        // App Title & Tagline + Config button
+        // App Title Row
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
+                // Gradient Logo Badge
                 Box(
                     modifier = Modifier
-                        .size(34.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(PanelNested)
-                        .border(1.dp, AccentTeal.copy(alpha = 0.5f), RoundedCornerShape(8.dp)),
+                        .size(36.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(
+                            Brush.linearGradient(
+                                colors = listOf(GradientStart, GradientMid, GradientEnd)
+                            )
+                        ),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = "SL",
-                        color = AccentTeal,
-                        fontWeight = FontWeight.Bold,
+                        color = BgDark,
+                        fontWeight = FontWeight.ExtraBold,
                         fontFamily = FontFamily.Monospace,
                         fontSize = 15.sp
                     )
@@ -87,69 +94,62 @@ fun PhaseHeader(
                             text = "SchemaLens",
                             color = TextPrimary,
                             fontWeight = FontWeight.Bold,
-                            fontSize = 18.sp
+                            fontSize = 19.sp
                         )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(4.dp))
-                                .background(Color(0xFF242A35))
-                                .padding(horizontal = 5.dp, vertical = 2.dp)
-                        ) {
-                            Text(
-                                text = "iQOO '26",
-                                color = AccentTeal,
-                                fontSize = 9.sp,
-                                fontFamily = FontFamily.Monospace,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
+                        Spacer(modifier = Modifier.width(7.dp))
+                        Text(
+                            text = "Studio",
+                            color = AccentTeal,
+                            fontWeight = FontWeight.Medium,
+                            fontSize = 19.sp
+                        )
                     }
                     Text(
-                        text = "AirTrace DB · Offline Impact Engine",
+                        text = "v2.0 · AirTrace DB · iQOO '26",
                         color = TextDim,
-                        fontSize = 11.sp
+                        fontSize = 11.sp,
+                        fontFamily = FontFamily.Monospace
                     )
                 }
             }
 
             IconButton(
                 onClick = onOpenSettings,
-                modifier = Modifier.size(36.dp)
+                modifier = Modifier.size(38.dp)
             ) {
                 Icon(
                     imageVector = Icons.Default.Settings,
                     contentDescription = "Settings",
                     tint = TextDim,
-                    modifier = Modifier.size(18.dp)
+                    modifier = Modifier.size(20.dp)
                 )
             }
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(10.dp))
 
-        // Red Light / Green Light Switcher Bar
+        // Red/Green Light Zone Switcher
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(10.dp))
                 .background(BgDark)
                 .border(1.dp, BorderDark, RoundedCornerShape(10.dp))
-                .padding(4.dp),
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                .padding(3.dp),
+            horizontalArrangement = Arrangement.spacedBy(3.dp)
         ) {
-            PhaseTab(
+            ZoneTab(
                 title = "🔴 Red Light",
-                subtitle = "On-Device · 0 Network",
+                subtitle = "On-Device · Zero Network",
                 isSelected = activeZone == AppZone.RED_LIGHT,
                 accentColor = RiskBreaking,
                 onClick = { onZoneClick(AppZone.RED_LIGHT) },
                 modifier = Modifier.weight(1f)
             )
 
-            PhaseTab(
+            ZoneTab(
                 title = "🟢 Green Light",
-                subtitle = "Cloud · LLM Assess",
+                subtitle = "Cloud · Claude Opus",
                 isSelected = activeZone == AppZone.GREEN_LIGHT,
                 accentColor = RiskSafe,
                 onClick = { onZoneClick(AppZone.GREEN_LIGHT) },
@@ -160,20 +160,22 @@ fun PhaseHeader(
 }
 
 @Composable
-private fun PhaseTab(
+private fun ZoneTab(
     title: String,
     subtitle: String,
     isSelected: Boolean,
-    accentColor: Color,
+    accentColor: androidx.compose.ui.graphics.Color,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val bgAnim by animateColorAsState(
-        targetValue = if (isSelected) PanelNested else Color.Transparent,
+        targetValue = if (isSelected) PanelNested else androidx.compose.ui.graphics.Color.Transparent,
+        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
         label = "tabBg"
     )
     val borderAnim by animateColorAsState(
-        targetValue = if (isSelected) accentColor.copy(alpha = 0.5f) else Color.Transparent,
+        targetValue = if (isSelected) accentColor.copy(alpha = 0.6f) else androidx.compose.ui.graphics.Color.Transparent,
+        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
         label = "tabBorder"
     )
 
@@ -183,26 +185,15 @@ private fun PhaseTab(
             .background(bgAnim)
             .border(1.dp, borderAnim, RoundedCornerShape(8.dp))
             .clickable(onClick = onClick)
-            .padding(horizontal = 8.dp, vertical = 6.dp)
+            .padding(horizontal = 10.dp, vertical = 7.dp)
     ) {
         Column {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(6.dp)
-                        .clip(CircleShape)
-                        .background(if (isSelected) accentColor else TextFaint)
-                )
-                Text(
-                    text = title,
-                    color = if (isSelected) TextPrimary else TextDim,
-                    fontSize = 12.sp,
-                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
-                )
-            }
+            Text(
+                text = title,
+                color = if (isSelected) TextPrimary else TextDim,
+                fontSize = 12.sp,
+                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
+            )
             Text(
                 text = subtitle,
                 color = if (isSelected) TextDim else TextFaint,

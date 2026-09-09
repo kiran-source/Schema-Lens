@@ -15,8 +15,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -30,6 +34,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -38,11 +43,15 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.schemalens.app.data.AppZone
 import com.schemalens.app.network.AiProvider
+import com.schemalens.app.ui.theme.AccentPurple
 import com.schemalens.app.ui.theme.AccentTeal
+import com.schemalens.app.ui.theme.BgDark
 import com.schemalens.app.ui.theme.BorderDark
+import com.schemalens.app.ui.theme.GradientEnd
+import com.schemalens.app.ui.theme.GradientMid
+import com.schemalens.app.ui.theme.GradientStart
 import com.schemalens.app.ui.theme.PanelDark
 import com.schemalens.app.ui.theme.PanelNested
-import com.schemalens.app.ui.theme.RiskSafe
 import com.schemalens.app.ui.theme.TextDim
 import com.schemalens.app.ui.theme.TextFaint
 import com.schemalens.app.ui.theme.TextPrimary
@@ -64,7 +73,7 @@ fun ApiKeyDialog(
         Surface(
             modifier = modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(14.dp)),
+                .clip(RoundedCornerShape(16.dp)),
             color = PanelDark
         ) {
             Column(
@@ -72,6 +81,7 @@ fun ApiKeyDialog(
                     .fillMaxWidth()
                     .padding(20.dp)
             ) {
+                // Header with gradient accent
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -80,53 +90,64 @@ fun ApiKeyDialog(
                     Text(
                         text = "AI Assessment Engine",
                         color = TextPrimary,
-                        fontSize = 16.sp,
+                        fontSize = 17.sp,
                         fontWeight = FontWeight.Bold
                     )
                     ZoneBadge(zone = AppZone.GREEN_LIGHT)
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
-
+                Spacer(modifier = Modifier.height(6.dp))
                 Text(
-                    text = "Select your reasoning provider for Green Light risk assessment:",
+                    text = "Select your reasoning provider for risk assessment:",
                     color = TextDim,
                     fontSize = 12.sp
                 )
 
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(14.dp))
 
-                // Provider Selectors
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                // Provider Options
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    // Claude Opus — Recommended
                     ProviderOption(
-                        title = "✨ SchemaLens Engine (Instant · Built-in)",
-                        subtitle = "Runs automatically with zero API key or setup needed.",
+                        title = "⚡ Claude Opus 4",
+                        subtitle = "Anthropic's most powerful model with deep reasoning",
+                        isSelected = selectedProvider == AiProvider.CLAUDE_OPUS,
+                        isRecommended = true,
+                        onClick = { selectedProvider = AiProvider.CLAUDE_OPUS }
+                    )
+
+                    ProviderOption(
+                        title = "✨ SchemaLens Engine (Built-in)",
+                        subtitle = "Instant results, zero API key needed",
                         isSelected = selectedProvider == AiProvider.SMART_LOCAL,
+                        isRecommended = false,
                         onClick = { selectedProvider = AiProvider.SMART_LOCAL }
                     )
 
                     ProviderOption(
-                        title = "🌐 Google Gemini 1.5",
-                        subtitle = "Connects to Gemini Flash via Google AI Studio API key.",
-                        isSelected = selectedProvider == AiProvider.GEMINI,
-                        onClick = { selectedProvider = AiProvider.GEMINI }
-                    )
-
-                    ProviderOption(
-                        title = "⚡ Custom / OpenAI Endpoint",
-                        subtitle = "Compatible with custom LLM servers and OpenAI proxies.",
+                        title = "🌐 Custom / OpenAI Endpoint",
+                        subtitle = "Compatible with any OpenAI-format API",
                         isSelected = selectedProvider == AiProvider.CUSTOM_OPENAI,
+                        isRecommended = false,
                         onClick = { selectedProvider = AiProvider.CUSTOM_OPENAI }
                     )
                 }
 
+                // API Key input for cloud providers
                 if (selectedProvider != AiProvider.SMART_LOCAL) {
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(14.dp))
 
                     OutlinedTextField(
                         value = keyInput,
                         onValueChange = { keyInput = it },
-                        label = { Text(if (selectedProvider == AiProvider.GEMINI) "Gemini API Key (AIzaSy...)" else "API Key (Bearer token)") },
+                        label = {
+                            Text(
+                                when (selectedProvider) {
+                                    AiProvider.CLAUDE_OPUS -> "Anthropic API Key (sk-ant-...)"
+                                    else -> "API Key (Bearer token)"
+                                }
+                            )
+                        },
                         singleLine = true,
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = AccentTeal,
@@ -160,7 +181,7 @@ fun ApiKeyDialog(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(18.dp))
+                Spacer(modifier = Modifier.height(20.dp))
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -177,7 +198,7 @@ fun ApiKeyDialog(
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = AccentTeal)
                     ) {
-                        Text("Apply Settings", color = PanelDark, fontWeight = FontWeight.Bold)
+                        Text("Apply Settings", color = BgDark, fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -190,32 +211,73 @@ private fun ProviderOption(
     title: String,
     subtitle: String,
     isSelected: Boolean,
+    isRecommended: Boolean,
     onClick: () -> Unit
 ) {
+    val borderColor = when {
+        isSelected && isRecommended -> AccentTeal
+        isSelected -> AccentTeal
+        else -> BorderDark
+    }
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
+            .clip(RoundedCornerShape(10.dp))
             .background(if (isSelected) PanelNested else Color.Transparent)
-            .border(1.dp, if (isSelected) AccentTeal else BorderDark, RoundedCornerShape(8.dp))
+            .border(1.dp, borderColor, RoundedCornerShape(10.dp))
             .clickable(onClick = onClick)
-            .padding(10.dp)
+            .padding(12.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
+            // Selection indicator
             Box(
                 modifier = Modifier
-                    .size(14.dp)
+                    .size(18.dp)
                     .clip(CircleShape)
-                    .background(if (isSelected) AccentTeal else BorderDark)
-            )
+                    .background(if (isSelected) AccentTeal else BorderDark),
+                contentAlignment = Alignment.Center
+            ) {
+                if (isSelected) {
+                    Icon(
+                        imageVector = Icons.Default.CheckCircle,
+                        contentDescription = null,
+                        tint = BgDark,
+                        modifier = Modifier.size(14.dp)
+                    )
+                }
+            }
             Spacer(modifier = Modifier.width(10.dp))
-            Column {
-                Text(
-                    text = title,
-                    color = if (isSelected) TextPrimary else TextDim,
-                    fontSize = 12.sp,
-                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                )
+            Column(modifier = Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = title,
+                        color = if (isSelected) TextPrimary else TextDim,
+                        fontSize = 13.sp,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                    )
+                    if (isRecommended) {
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(
+                                    Brush.linearGradient(
+                                        listOf(GradientStart, GradientMid, GradientEnd)
+                                    )
+                                )
+                                .padding(horizontal = 5.dp, vertical = 1.dp)
+                        ) {
+                            Text(
+                                text = "BEST",
+                                color = BgDark,
+                                fontSize = 8.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                fontFamily = FontFamily.Monospace
+                            )
+                        }
+                    }
+                }
                 Text(
                     text = subtitle,
                     color = TextFaint,

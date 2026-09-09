@@ -9,7 +9,9 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.schemalens.app.BuildConfig
+import com.schemalens.app.data.AppTab
 import com.schemalens.app.data.AppZone
+import com.schemalens.app.data.AssessmentHistoryEntry
 import com.schemalens.app.data.AssessmentResult
 import com.schemalens.app.data.CallSite
 import com.schemalens.app.data.RiskSeverity
@@ -28,6 +30,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 data class MainUiState(
+    val currentTab: AppTab = AppTab.SCHEMA,
     val activeZone: AppZone = AppZone.RED_LIGHT,
     val packageName: String = SampleData.DEFAULT_PACKAGE,
     val codeBuffer: String = SampleData.DEFAULT_CODE_BUFFER,
@@ -57,9 +60,10 @@ data class MainUiState(
     val isAssessing: Boolean = false,
     val assessmentResult: AssessmentResult? = null,
     val assessmentError: String? = null,
+    val assessmentHistory: List<AssessmentHistoryEntry> = emptyList(),
 
     // AI Engine Configuration
-    val aiProvider: AiProvider = AiProvider.SMART_LOCAL,
+    val aiProvider: AiProvider = AiProvider.CLAUDE_OPUS,
     val apiKey: String = "",
     val customEndpoint: String = "",
 
@@ -87,6 +91,15 @@ class MainViewModel(
 
         // Perform initial trace so judges see immediate working data on launch
         performTrace()
+    }
+
+    fun selectTab(tab: AppTab) {
+        _uiState.update {
+            it.copy(
+                currentTab = tab,
+                activeZone = if (tab == AppTab.ASSESS || tab == AppTab.EXPORT) AppZone.GREEN_LIGHT else AppZone.RED_LIGHT
+            )
+        }
     }
 
     fun setActiveZone(zone: AppZone) {
@@ -383,11 +396,27 @@ class MainViewModel(
                     site.copy(verdict = verdictMap[site.index])
                 }
 
+                val breaking = updatedCallSites.count { it.verdict?.sev == RiskSeverity.BREAKING }
+                val risky = updatedCallSites.count { it.verdict?.sev == RiskSeverity.RISKY }
+                val safe = updatedCallSites.count { it.verdict?.sev == RiskSeverity.SAFE }
+
+                val historyEntry = AssessmentHistoryEntry(
+                    packageName = state.packageName,
+                    overallScore = assessment.overallScore,
+                    summary = assessment.summary,
+                    sitesCount = state.callSites.size,
+                    breakingCount = breaking,
+                    riskyCount = risky,
+                    safeCount = safe,
+                    ormPatch = assessment.ormPatch
+                )
+
                 _uiState.update {
                     it.copy(
                         isAssessing = false,
                         assessmentResult = assessment,
                         callSites = updatedCallSites,
+                        assessmentHistory = listOf(historyEntry) + it.assessmentHistory,
                         assessmentError = null
                     )
                 }
@@ -401,6 +430,18 @@ class MainViewModel(
                 }
             }
         }
+    }
+
+    fun deleteHistoryEntry(id: String) {
+        _uiState.update { state ->
+            state.copy(assessmentHistory = state.assessmentHistory.filter { it.id != id })
+        }
+        showSnackbar("Removed assessment from history")
+    }
+
+    fun clearHistory() {
+        _uiState.update { it.copy(assessmentHistory = emptyList()) }
+        showSnackbar("Cleared assessment history")
     }
 
     // --- Office Kit Clipboard Bridge & Export Hub (Green Light) ---

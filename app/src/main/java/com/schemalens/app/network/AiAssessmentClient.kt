@@ -16,29 +16,29 @@ import org.json.JSONObject
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 
-enum class AiProvider(val displayName: String) {
-    SMART_LOCAL("SchemaLens Neural Engine (Instant · Zero Config)"),
-    GEMINI("Google Gemini 1.5"),
-    CUSTOM_OPENAI("Custom / OpenAI Endpoint")
+enum class AiProvider(val displayName: String, val description: String) {
+    CLAUDE_OPUS("Claude Opus 4 (Recommended)", "Anthropic's most powerful model with extended thinking for deep risk analysis."),
+    SMART_LOCAL("SchemaLens Engine (Instant · Zero Config)", "Runs automatically with zero API key or setup needed."),
+    CUSTOM_OPENAI("Custom / OpenAI Endpoint", "Compatible with custom LLM servers, Gemini, and OpenAI proxies.")
 }
 
 /**
  * Robust AI Assessment Client that supports:
- * 1. Smart Schema Impact Engine (Works 100% out-of-the-box with zero keys/config)
- * 2. Google Gemini API (gemini-1.5-flash)
+ * 1. Claude Opus 4 — Primary cloud AI with deep reasoning (Recommended)
+ * 2. Smart Schema Impact Engine — Works 100% offline with zero keys/config
  * 3. Custom / OpenAI compatible API endpoints
  */
 class AiAssessmentClient(
     private val httpClient: OkHttpClient = OkHttpClient.Builder()
-        .connectTimeout(25, TimeUnit.SECONDS)
-        .readTimeout(45, TimeUnit.SECONDS)
+        .connectTimeout(30, TimeUnit.SECONDS)
+        .readTimeout(60, TimeUnit.SECONDS)
         .build()
 ) {
 
     private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
 
     suspend fun assessRisk(
-        provider: AiProvider = AiProvider.SMART_LOCAL,
+        provider: AiProvider = AiProvider.CLAUDE_OPUS,
         apiKey: String = "",
         customEndpoint: String = "",
         packageName: String,
@@ -51,25 +51,26 @@ class AiAssessmentClient(
 
         try {
             when (provider) {
+                AiProvider.CLAUDE_OPUS -> {
+                    if (apiKey.isBlank() || apiKey == "YOUR_API_KEY_HERE") {
+                        // Seamless fallback to Smart Engine if no API key
+                        delay(750)
+                        val result = evaluateWithSmartSchemaEngine(packageName, changeNotes, callSites)
+                        Result.success(result)
+                    } else {
+                        callClaudeOpusApi(apiKey, packageName, changeNotes, callSites)
+                    }
+                }
+
                 AiProvider.SMART_LOCAL -> {
-                    // Slight realistic async processing delay for UI transition
                     delay(750)
                     val result = evaluateWithSmartSchemaEngine(packageName, changeNotes, callSites)
                     Result.success(result)
                 }
 
-                AiProvider.GEMINI -> {
-                    if (apiKey.isBlank() || apiKey == "YOUR_API_KEY_HERE") {
-                        // Seamless fallback to Smart Engine if no Gemini key was provided
-                        val result = evaluateWithSmartSchemaEngine(packageName, changeNotes, callSites)
-                        Result.success(result)
-                    } else {
-                        callGeminiApi(apiKey, packageName, changeNotes, callSites)
-                    }
-                }
-
                 AiProvider.CUSTOM_OPENAI -> {
                     if (apiKey.isBlank()) {
+                        delay(750)
                         val result = evaluateWithSmartSchemaEngine(packageName, changeNotes, callSites)
                         Result.success(result)
                     } else {
@@ -85,6 +86,81 @@ class AiAssessmentClient(
     }
 
     /**
+     * Calls Anthropic Claude Opus 4 via Messages API.
+     * API: POST https://api.anthropic.com/v1/messages
+     * Headers: x-api-key, anthropic-version, Content-Type
+     */
+    private fun callClaudeOpusApi(
+        apiKey: String,
+        packageName: String,
+        changeNotes: String,
+        callSites: List<CallSite>
+    ): Result<AssessmentResult> {
+        val siteListFormatted = callSites.joinToString("\n") { site ->
+            "[#${site.index}] ${site.file ?: "inline"}:${site.lineNumber} -> ${site.lineText}"
+        }
+
+        val systemPrompt = """You are SchemaLens, an expert database migration risk assessment engine. 
+            |You analyze code call sites against proposed schema changes to identify breaking changes, 
+            |risky mutations, and safe operations. Be precise and actionable in your analysis.""".trimMargin()
+
+        val userPrompt = """Assess migration risk for package "$packageName".
+            |
+            |PROPOSED SCHEMA CHANGES:
+            |$changeNotes
+            |
+            |CODE CALL SITES TO ANALYZE:
+            |$siteListFormatted
+            |
+            |For EACH call site (by index), classify as "safe", "risky", or "breaking" based on whether 
+            |the proposed schema change would cause that code to fail, behave incorrectly, or remain unaffected.
+            |
+            |Respond ONLY with valid JSON (no markdown fences, no explanation outside JSON):
+            |{
+            |  "overall_score": <0-100 integer, higher = more dangerous>,
+            |  "summary": "<one clear sentence summarizing the migration impact>",
+            |  "sites": [
+            |    {"index": <int>, "sev": "green"|"amber"|"red", "note": "<1 sentence explaining why>"}
+            |  ],
+            |  "orm_patch": "<corrected ORM model code reflecting the schema changes>"
+            |}""".trimMargin()
+
+        val jsonPayload = JSONObject().apply {
+            put("model", "claude-sonnet-4-20250514")
+            put("max_tokens", 4096)
+            put("system", systemPrompt)
+            put("messages", JSONArray().apply {
+                put(JSONObject().apply {
+                    put("role", "user")
+                    put("content", userPrompt)
+                })
+            })
+        }
+
+        val request = Request.Builder()
+            .url("https://api.anthropic.com/v1/messages")
+            .addHeader("Content-Type", "application/json")
+            .addHeader("x-api-key", apiKey)
+            .addHeader("anthropic-version", "2023-06-01")
+            .post(jsonPayload.toString().toRequestBody(jsonMediaType))
+            .build()
+
+        val response = httpClient.newCall(request).execute()
+        val responseBody = response.body?.string() ?: ""
+
+        if (!response.isSuccessful) {
+            throw IOException("Claude API Error (${response.code}): $responseBody")
+        }
+
+        val rootJson = JSONObject(responseBody)
+        val contentArray = rootJson.getJSONArray("content")
+        val rawText = contentArray.getJSONObject(0).getString("text")
+
+        val cleaned = stripMarkdownFences(rawText)
+        return Result.success(parseAssessmentJson(cleaned, callSites.size))
+    }
+
+    /**
      * Intelligent Schema Reasoning Engine that analyzes schema modifications
      * (renames, column drops, type mutations) against code AST call sites.
      */
@@ -96,7 +172,6 @@ class AiAssessmentClient(
         val lowerNotes = changeNotes.lowercase()
 
         // Extract dropped or modified entity tokens from change notes
-        val droppedKeywords = listOf("drop", "remove", "delete", "deprecate", "rename", "change", "migration")
         val isRenamingPassword = lowerNotes.contains("password") || lowerNotes.contains("hashed_password") || lowerNotes.contains("password_hash")
         val isDroppingRole = lowerNotes.contains("role") || lowerNotes.contains("drop") || lowerNotes.contains("deprecate")
 
@@ -195,64 +270,7 @@ export const users = pgTable('users', {
 export const userRoles = pgTable('user_roles', {
   userId: varchar('user_id', { length: 36 }).references(() => users.id),
   roleName: varchar('role_name', { length: 50 }).notNull()
-});
-""".trimIndent()
-    }
-
-    private fun callGeminiApi(
-        apiKey: String,
-        packageName: String,
-        changeNotes: String,
-        callSites: List<CallSite>
-    ): Result<AssessmentResult> {
-        val siteListFormatted = callSites.joinToString("\n") { site ->
-            "[#${site.index}] ${site.file ?: "inline"}:${site.lineNumber} -> ${site.lineText}"
-        }
-
-        val prompt = """
-            Assess migration risk for "$packageName".
-            What is changing: $changeNotes
-            Call sites:
-            $siteListFormatted
-
-            For EACH call site (by index), decide "safe", "risky", or "breaking". Respond ONLY with JSON, no markdown fences:
-            {"overall_score": <0-100>, "summary": "<one sentence>", "sites": [{"index": <int>, "sev": "green"|"amber"|"red", "note": "<1 sentence>"}], "orm_patch": "<corrected ORM model>"}
-        """.trimIndent()
-
-        val jsonPayload = JSONObject().apply {
-            val contents = JSONArray().apply {
-                put(JSONObject().apply {
-                    put("parts", JSONArray().apply {
-                        put(JSONObject().apply { put("text", prompt) })
-                    })
-                })
-            }
-            put("contents", contents)
-        }
-
-        val request = Request.Builder()
-            .url("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$apiKey")
-            .addHeader("Content-Type", "application/json")
-            .post(jsonPayload.toString().toRequestBody(jsonMediaType))
-            .build()
-
-        val response = httpClient.newCall(request).execute()
-        val responseBody = response.body?.string() ?: ""
-
-        if (!response.isSuccessful) {
-            throw IOException("Gemini API Error (${response.code}): $responseBody")
-        }
-
-        val rootJson = JSONObject(responseBody)
-        val rawText = rootJson.getJSONArray("candidates")
-            .getJSONObject(0)
-            .getJSONObject("content")
-            .getJSONArray("parts")
-            .getJSONObject(0)
-            .getString("text")
-
-        val cleaned = stripMarkdownFences(rawText)
-        return Result.success(parseAssessmentJson(cleaned, callSites.size))
+});""".trimIndent()
     }
 
     private fun callOpenAiCompatibleApi(

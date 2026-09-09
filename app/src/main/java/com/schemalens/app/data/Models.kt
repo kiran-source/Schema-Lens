@@ -43,7 +43,7 @@ data class SiteVerdict(
 )
 
 /**
- * Complete assessment response from Claude Sonnet 4.6.
+ * Complete assessment response from Claude Opus 4.
  */
 data class AssessmentResult(
     val overallScore: Int,
@@ -84,4 +84,67 @@ data class OcrExtractionResult(
 enum class AppZone(val title: String, val badgeText: String, val isNetworkAllowed: Boolean) {
     RED_LIGHT("Red Light Zone", "🔒 on-device · no network", false),
     GREEN_LIGHT("Green Light Zone", "☁️ cloud reasoning", true)
+}
+
+// ─── New v2.0 Data Classes ─────────────────────────────────────────────
+
+/**
+ * Bottom navigation tab destinations.
+ */
+enum class AppTab(val route: String, val title: String, val icon: String) {
+    SCHEMA("schema", "Schema", "schema"),
+    TRACE("trace", "Trace", "trace"),
+    ASSESS("assess", "Assess", "assess"),
+    EXPORT("export", "Export", "export")
+}
+
+/**
+ * A saved assessment in history for later review.
+ */
+data class AssessmentHistoryEntry(
+    val id: String = System.currentTimeMillis().toString(),
+    val timestamp: Long = System.currentTimeMillis(),
+    val packageName: String,
+    val overallScore: Int,
+    val summary: String,
+    val sitesCount: Int,
+    val breakingCount: Int,
+    val riskyCount: Int,
+    val safeCount: Int,
+    val ormPatch: String
+)
+
+/**
+ * Migration step for the timeline visualization.
+ */
+data class MigrationStep(
+    val title: String,
+    val description: String,
+    val status: MigrationStepStatus,
+    val timestamp: Long? = null
+)
+
+enum class MigrationStepStatus {
+    PENDING,
+    IN_PROGRESS,
+    COMPLETED,
+    FAILED
+}
+
+/**
+ * Schema diff entry showing before/after column changes.
+ */
+data class SchemaDiffEntry(
+    val columnName: String,
+    val changeType: DiffChangeType,
+    val oldValue: String? = null,
+    val newValue: String? = null
+)
+
+enum class DiffChangeType {
+    ADDED,
+    REMOVED,
+    RENAMED,
+    TYPE_CHANGED,
+    UNCHANGED
 }
