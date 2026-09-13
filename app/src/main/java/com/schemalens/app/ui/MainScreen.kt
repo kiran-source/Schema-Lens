@@ -36,6 +36,9 @@ import androidx.compose.material.icons.outlined.Code
 import androidx.compose.material.icons.outlined.Layers
 import androidx.compose.material.icons.outlined.Storage
 import androidx.compose.material.icons.outlined.Tune
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
@@ -727,6 +730,66 @@ fun MigrationRiskCard(
                     modifier = Modifier.weight(1f),
                     count = "$indexesCount",
                     label = "Indexes"
+                )
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // Dedicated Risk Assessment Action Button
+            Button(
+                onClick = onAssess,
+                enabled = !uiState.isAssessing,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF2DD4BF),
+                    contentColor = Color(0xFF090A0C),
+                    disabledContainerColor = Color(0xFF1E232B),
+                    disabledContentColor = Color(0xFF5A6270)
+                )
+            ) {
+                if (uiState.isAssessing) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        color = Color(0xFF090A0C),
+                        strokeWidth = 2.dp
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Reasoning with On-Device SLM (Gemma 2B)...",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.5.sp
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Outlined.Bolt,
+                        contentDescription = "Assess",
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Run Risk Assessment (On-Device SLM)",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Telemetry micro-row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "🔒 100% Air-Gapped SLM · 0 KB Net Calls · ~${uiState.inferenceLatencyMs}ms",
+                    color = Color(0xFF5A6270),
+                    fontSize = 10.5.sp,
+                    fontFamily = FontFamily.Monospace
                 )
             }
         }
