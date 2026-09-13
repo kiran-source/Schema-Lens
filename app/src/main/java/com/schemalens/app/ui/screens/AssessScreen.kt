@@ -36,6 +36,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -130,6 +131,10 @@ fun AssessScreen(
         SchemaDiffEntry("users.status", DiffChangeType.TYPE_CHANGED, "integer", "varchar(20)")
     )
 
+    LaunchedEffect(Unit) {
+        viewModel.initLocalLlmManager(context)
+    }
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -155,33 +160,53 @@ fun AssessScreen(
                 ) {
                     Column {
                         Text(
-                            text = "DEEP RISK ASSESSMENT",
-                            color = ClaudeGradientStart,
+                            text = "ON-DEVICE SLM RISK ASSESSMENT",
+                            color = AccentTeal,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
                             fontFamily = FontFamily.Monospace,
                             letterSpacing = 1.sp
                         )
                         Text(
-                            text = "Powered by ${uiState.aiProvider.displayName}",
+                            text = "Gemma 2B · Zero Network Calls",
                             color = TextPrimary,
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold
                         )
                     }
 
-                    IconButton(
-                        onClick = onOpenSettings,
+                    Box(
                         modifier = Modifier
-                            .size(34.dp)
-                            .clip(CircleShape)
-                            .background(PanelNested)
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(Color(0xFF102A27))
+                            .border(0.8.dp, AccentTeal.copy(alpha = 0.4f), RoundedCornerShape(6.dp))
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Settings,
-                            contentDescription = "AI Settings",
-                            tint = ClaudeGradientStart,
-                            modifier = Modifier.size(18.dp)
+                        Text(
+                            text = "🔒 100% on-device SLM · air-gapped",
+                            color = AccentTeal,
+                            fontSize = 10.sp,
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+
+                if (uiState.isModelWeightsMissing) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(Color(0xFF3D2B1A))
+                            .border(0.8.dp, Color(0xFFF0883E).copy(alpha = 0.4f), RoundedCornerShape(6.dp))
+                            .padding(horizontal = 10.dp, vertical = 6.dp)
+                    ) {
+                        Text(
+                            text = "⚡ Running on local heuristic engine (model weights missing)",
+                            color = Color(0xFFF0883E),
+                            fontSize = 11.sp,
+                            fontFamily = FontFamily.Monospace
                         )
                     }
                 }
@@ -290,27 +315,27 @@ fun AssessScreen(
 
                 // Run Assessment Button
                 Button(
-                    onClick = { viewModel.performAssessment() },
+                    onClick = { viewModel.performAssessment(context) },
                     enabled = !uiState.isAssessing && uiState.callSites.isNotEmpty(),
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = ClaudeGradientStart,
-                        contentColor = Color.White
+                        containerColor = AccentTeal,
+                        contentColor = BgDark
                     ),
                     shape = RoundedCornerShape(10.dp)
                 ) {
                     if (uiState.isAssessing) {
                         CircularProgressIndicator(
-                            color = Color.White,
+                            color = BgDark,
                             modifier = Modifier.size(16.dp),
                             strokeWidth = 2.dp
                         )
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Reasoning with ${uiState.aiProvider.displayName}...", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        Text("Reasoning with On-Device SLM (Gemma 2B)...", fontSize = 13.sp, fontWeight = FontWeight.Bold)
                     } else {
                         Icon(imageVector = Icons.Default.Bolt, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Assess Breaking Risk with Claude Opus", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        Text("Assess Breaking Risk (On-Device SLM)", fontSize = 13.sp, fontWeight = FontWeight.Bold)
                     }
                 }
 

@@ -95,6 +95,9 @@ dependencies {
     // ML Kit On-Device Text Recognition (Zero network calls)
     implementation(libs.mlkit.text.recognition)
 
+    // On-Device SLM (Google MediaPipe Tasks GenAI for Gemma-2B)
+    implementation("com.google.mediapipe:tasks-genai:0.10.14")
+
     // Networking (Cloud Phase only)
     implementation(libs.okhttp)
     implementation(libs.okhttp.logging)

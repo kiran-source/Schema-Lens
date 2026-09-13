@@ -79,7 +79,7 @@ fun MainScreen(
                 },
                 onAssessClick = {
                     viewModel.selectTab(AppTab.ASSESS)
-                    viewModel.performAssessment()
+                    viewModel.performAssessment(context)
                 }
             )
         },

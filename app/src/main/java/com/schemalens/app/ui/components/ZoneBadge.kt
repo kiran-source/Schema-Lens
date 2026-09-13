@@ -35,10 +35,10 @@ fun ZoneBadge(
         }
         AppZone.GREEN_LIGHT -> {
             Quad(
-                Color(0xFF222834),
-                BorderDark,
-                TextDim,
-                "☁️ cloud reasoning"
+                Color(0xFF102A27),
+                AccentTeal.copy(alpha = 0.4f),
+                AccentTeal,
+                "🔒 100% on-device SLM · air-gapped"
             )
         }
     }

@@ -22,6 +22,7 @@ import com.schemalens.app.network.AiProvider
 import com.schemalens.app.ocr.TextRecognitionHelper
 import com.schemalens.app.parser.ImportTraceParser
 import com.schemalens.app.parser.SchemaParser
+import com.schemalens.app.slm.LocalLlmInferenceManager
 import com.schemalens.app.voice.VoiceRecognizerHelper
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -56,11 +57,13 @@ data class MainUiState(
     val hasPerformedTrace: Boolean = false,
     val traceError: String? = null,
 
-    // Deep Risk Assessment State (Green Light)
+    // Deep Risk Assessment State (Green Light - On-Device SLM)
     val isAssessing: Boolean = false,
     val assessmentResult: AssessmentResult? = null,
     val assessmentError: String? = null,
     val assessmentHistory: List<AssessmentHistoryEntry> = emptyList(),
+    val modelStatusBadge: String = "🔒 100% on-device SLM · air-gapped",
+    val isModelWeightsMissing: Boolean = false,
 
     // AI Engine Configuration
     val aiProvider: AiProvider = AiProvider.CLAUDE_OPUS,
@@ -356,9 +359,24 @@ class MainViewModel(
         }
     }
 
-    // --- Cloud Deep Risk Assessment (Green Light) ---
+    private var localLlmManager: LocalLlmInferenceManager? = null
 
-    fun performAssessment() {
+    fun initLocalLlmManager(context: Context) {
+        if (localLlmManager == null) {
+            val manager = LocalLlmInferenceManager(context.applicationContext)
+            localLlmManager = manager
+            _uiState.update {
+                it.copy(
+                    modelStatusBadge = manager.modelStatusText,
+                    isModelWeightsMissing = !manager.isModelAvailable
+                )
+            }
+        }
+    }
+
+    // --- On-Device SLM Risk Assessment (Zero Network Calls · Red/Green Light) ---
+
+    fun performAssessment(context: Context? = null) {
         val state = _uiState.value
 
         if (state.callSites.isEmpty()) {
@@ -371,6 +389,10 @@ class MainViewModel(
             return
         }
 
+        if (context != null) {
+            initLocalLlmManager(context)
+        }
+
         viewModelScope.launch {
             _uiState.update {
                 it.copy(
@@ -380,16 +402,29 @@ class MainViewModel(
                 )
             }
 
-            val result = apiClient.assessRisk(
-                provider = state.aiProvider,
-                apiKey = state.apiKey,
-                customEndpoint = state.customEndpoint,
-                packageName = state.packageName,
-                changeNotes = state.changeNotes,
-                callSites = state.callSites
-            )
+            try {
+                val manager = localLlmManager ?: context?.let { LocalLlmInferenceManager(it.applicationContext) }
+                val assessment: AssessmentResult = if (manager != null) {
+                    _uiState.update {
+                        it.copy(
+                            modelStatusBadge = manager.modelStatusText,
+                            isModelWeightsMissing = !manager.isModelAvailable
+                        )
+                    }
+                    manager.assessRiskOnDevice(
+                        packageName = state.packageName,
+                        changeNotes = state.changeNotes,
+                        callSites = state.callSites
+                    )
+                } else {
+                    // Fallback for tests or environments without context
+                    apiClient.evaluateWithSmartSchemaEngine(
+                        packageName = state.packageName,
+                        changeNotes = state.changeNotes,
+                        callSites = state.callSites
+                    )
+                }
 
-            result.onSuccess { assessment ->
                 // Map verdicts back to call sites
                 val verdictMap = assessment.sites.associateBy { it.index }
                 val updatedCallSites = state.callSites.map { site ->
@@ -420,12 +455,12 @@ class MainViewModel(
                         assessmentError = null
                     )
                 }
-                showSnackbar("Assessment complete · Risk Score: ${assessment.overallScore}/100")
-            }.onFailure { error ->
+                showSnackbar("On-Device SLM Assessment complete · Risk Score: ${assessment.overallScore}/100")
+            } catch (e: Exception) {
                 _uiState.update {
                     it.copy(
                         isAssessing = false,
-                        assessmentError = error.localizedMessage ?: "Failed to perform cloud risk assessment"
+                        assessmentError = e.localizedMessage ?: "Failed to perform on-device SLM assessment"
                     )
                 }
             }

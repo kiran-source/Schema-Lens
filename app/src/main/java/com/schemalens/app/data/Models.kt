@@ -83,7 +83,7 @@ data class OcrExtractionResult(
  */
 enum class AppZone(val title: String, val badgeText: String, val isNetworkAllowed: Boolean) {
     RED_LIGHT("Red Light Zone", "🔒 on-device · no network", false),
-    GREEN_LIGHT("Green Light Zone", "☁️ cloud reasoning", true)
+    GREEN_LIGHT("Green Light Zone", "🔒 100% on-device SLM · air-gapped", false)
 }
 
 // ─── New v2.0 Data Classes ─────────────────────────────────────────────

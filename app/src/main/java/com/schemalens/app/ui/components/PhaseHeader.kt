@@ -149,7 +149,7 @@ fun PhaseHeader(
 
             ZoneTab(
                 title = "🟢 Green Light",
-                subtitle = "Cloud · Claude Opus",
+                subtitle = "On-Device · SLM Air-Gapped",
                 isSelected = activeZone == AppZone.GREEN_LIGHT,
                 accentColor = RiskSafe,
                 onClick = { onZoneClick(AppZone.GREEN_LIGHT) },
