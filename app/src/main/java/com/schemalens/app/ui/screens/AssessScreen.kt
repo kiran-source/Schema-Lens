@@ -55,6 +55,7 @@ import com.schemalens.app.data.RiskSeverity
 import com.schemalens.app.data.SchemaDiffEntry
 import com.schemalens.app.network.AiProvider
 import com.schemalens.app.ui.components.EmptyStateView
+import com.schemalens.app.ui.components.HardwareTelemetryHud
 import com.schemalens.app.ui.components.MigrationTimeline
 import com.schemalens.app.ui.components.RiskGauge
 import com.schemalens.app.ui.components.SchemaDiffView
@@ -351,6 +352,9 @@ fun AssessScreen(
             val breakingCount = uiState.callSites.count { it.verdict?.sev == RiskSeverity.BREAKING }
             val riskyCount = uiState.callSites.count { it.verdict?.sev == RiskSeverity.RISKY }
             val safeCount = uiState.callSites.count { it.verdict?.sev == RiskSeverity.SAFE }
+
+            // Air-Gap Hardware Telemetry HUD
+            HardwareTelemetryHud(latencyMs = uiState.inferenceLatencyMs)
 
             // Speedometer Risk Gauge
             RiskGauge(

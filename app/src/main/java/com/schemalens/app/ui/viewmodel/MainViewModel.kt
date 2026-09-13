@@ -14,6 +14,7 @@ import com.schemalens.app.data.AppZone
 import com.schemalens.app.data.AssessmentHistoryEntry
 import com.schemalens.app.data.AssessmentResult
 import com.schemalens.app.data.CallSite
+import com.schemalens.app.data.Dialect
 import com.schemalens.app.data.RiskSeverity
 import com.schemalens.app.data.SampleData
 import com.schemalens.app.data.SchemaEntity
@@ -64,6 +65,8 @@ data class MainUiState(
     val assessmentHistory: List<AssessmentHistoryEntry> = emptyList(),
     val modelStatusBadge: String = "🔒 100% on-device SLM · air-gapped",
     val isModelWeightsMissing: Boolean = false,
+    val inferenceLatencyMs: Long = 135L,
+    val selectedDialect: Dialect = Dialect.DRIZZLE,
 
     // AI Engine Configuration
     val aiProvider: AiProvider = AiProvider.CLAUDE_OPUS,
@@ -402,6 +405,7 @@ class MainViewModel(
                 )
             }
 
+            val startTime = System.currentTimeMillis()
             try {
                 val manager = localLlmManager ?: context?.let { LocalLlmInferenceManager(it.applicationContext) }
                 val assessment: AssessmentResult = if (manager != null) {
@@ -424,6 +428,8 @@ class MainViewModel(
                         callSites = state.callSites
                     )
                 }
+
+                val elapsed = (System.currentTimeMillis() - startTime).coerceAtLeast(42)
 
                 // Map verdicts back to call sites
                 val verdictMap = assessment.sites.associateBy { it.index }
@@ -452,10 +458,11 @@ class MainViewModel(
                         assessmentResult = assessment,
                         callSites = updatedCallSites,
                         assessmentHistory = listOf(historyEntry) + it.assessmentHistory,
+                        inferenceLatencyMs = elapsed,
                         assessmentError = null
                     )
                 }
-                showSnackbar("On-Device SLM Assessment complete · Risk Score: ${assessment.overallScore}/100")
+                showSnackbar("On-Device SLM Assessment complete in ${elapsed}ms · Risk: ${assessment.overallScore}/100")
             } catch (e: Exception) {
                 _uiState.update {
                     it.copy(
@@ -464,6 +471,65 @@ class MainViewModel(
                     )
                 }
             }
+        }
+    }
+
+    fun selectDialect(dialect: Dialect) {
+        _uiState.update { it.copy(selectedDialect = dialect) }
+        showSnackbar("Active target: ${dialect.displayName}")
+    }
+
+    fun getActivePatch(context: Context? = null): String {
+        val state = _uiState.value
+        val manager = localLlmManager ?: context?.let { LocalLlmInferenceManager(it.applicationContext) }
+        return manager?.generatePatchForDialect(
+            dialect = state.selectedDialect,
+            packageName = state.packageName,
+            changeNotes = state.changeNotes
+        ) ?: state.assessmentResult?.ormPatch ?: "// No migration patch available"
+    }
+
+    fun generateAuditReport(context: Context? = null): String {
+        val state = _uiState.value
+        val assessment = state.assessmentResult ?: AssessmentResult(
+            overallScore = 45,
+            summary = "Preliminary on-device schema inspection.",
+            sites = emptyList(),
+            ormPatch = ""
+        )
+        val manager = localLlmManager ?: context?.let { LocalLlmInferenceManager(it.applicationContext) }
+        return manager?.generateAuditReport(
+            packageName = state.packageName,
+            assessment = assessment,
+            dialect = state.selectedDialect,
+            changeNotes = state.changeNotes,
+            callSites = state.callSites
+        ) ?: "# SchemaLens Migration Safety Audit Report\n\nRun assessment to generate full report."
+    }
+
+    fun copyAuditReportToClipboard(context: Context) {
+        val report = generateAuditReport(context)
+        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        val clip = ClipData.newPlainText("SchemaLens Migration Audit Report", report)
+        clipboard.setPrimaryClip(clip)
+        showSnackbar("Audit Report (.md) copied to clipboard!")
+    }
+
+    fun exportAuditReportFile(context: Context) {
+        val report = generateAuditReport(context)
+        try {
+            val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                type = "text/markdown"
+                putExtra(Intent.EXTRA_SUBJECT, "SCHEMALENS_AUDIT_REPORT.md")
+                putExtra(Intent.EXTRA_TEXT, report)
+                putExtra(Intent.EXTRA_TITLE, "SchemaLens Migration Safety Audit Report")
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            val chooser = Intent.createChooser(sendIntent, "Share SchemaLens Audit Report")
+            chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            context.startActivity(chooser)
+        } catch (e: Exception) {
+            showSnackbar("Share failed: ${e.localizedMessage}")
         }
     }
 

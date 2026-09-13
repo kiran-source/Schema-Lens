@@ -2,6 +2,7 @@ package com.schemalens.app.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,11 +20,14 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.IosShare
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -36,6 +40,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.schemalens.app.data.Dialect
 import com.schemalens.app.ui.components.AssessmentHistoryCard
 import com.schemalens.app.ui.components.EmptyStateView
 import com.schemalens.app.ui.theme.AccentTeal
@@ -56,7 +61,7 @@ fun ExportScreen(
 ) {
     val context = LocalContext.current
     val scrollState = rememberScrollState()
-    val patch = uiState.assessmentResult?.ormPatch ?: ""
+    val activePatch = viewModel.getActivePatch(context)
 
     Column(
         modifier = modifier
@@ -66,7 +71,7 @@ fun ExportScreen(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // Office Kit ORM Patch Export Card
+        // Multi-Dialect Migration Patch Card
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -83,7 +88,7 @@ fun ExportScreen(
                 ) {
                     Column {
                         Text(
-                            text = "OFFICE KIT CLIPBOARD BRIDGE",
+                            text = "MULTI-DIALECT MIGRATION EXPORTER",
                             color = AccentTeal,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
@@ -91,7 +96,7 @@ fun ExportScreen(
                             letterSpacing = 1.sp
                         )
                         Text(
-                            text = "Generated ORM Patch",
+                            text = "Generated Remediation Patch",
                             color = TextPrimary,
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold
@@ -101,8 +106,48 @@ fun ExportScreen(
 
                 Spacer(modifier = Modifier.height(10.dp))
 
+                // Dialect Selector FilterChips
+                val dialectScrollState = rememberScrollState()
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(dialectScrollState),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Dialect.values().forEach { dialect ->
+                        val isSelected = dialect == uiState.selectedDialect
+                        FilterChip(
+                            selected = isSelected,
+                            onClick = { viewModel.selectDialect(dialect) },
+                            label = {
+                                Text(
+                                    text = dialect.displayName,
+                                    fontSize = 11.sp,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                            },
+                            colors = FilterChipDefaults.filterChipColors(
+                                containerColor = PanelNested,
+                                labelColor = TextDim,
+                                selectedContainerColor = AccentTeal,
+                                selectedLabelColor = BgDark
+                            ),
+                            border = FilterChipDefaults.filterChipBorder(
+                                enabled = true,
+                                selected = isSelected,
+                                borderColor = if (isSelected) AccentTeal else BorderDark,
+                                selectedBorderColor = AccentTeal
+                            ),
+                            shape = RoundedCornerShape(8.dp)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
                 Text(
-                    text = "Ready to paste directly into your desktop IDE or pipe into git apply:",
+                    text = "Ready to paste into your desktop IDE or pipe into deployment scripts (${uiState.selectedDialect.fileExtension}):",
                     color = TextDim,
                     fontSize = 12.sp
                 )
@@ -119,7 +164,7 @@ fun ExportScreen(
                         .border(1.dp, BorderDark, RoundedCornerShape(8.dp))
                         .padding(12.dp)
                 ) {
-                    if (patch.isNotBlank()) {
+                    if (activePatch.isNotBlank()) {
                         val patchScrollState = rememberScrollState()
                         Column(
                             modifier = Modifier
@@ -127,7 +172,7 @@ fun ExportScreen(
                                 .verticalScroll(patchScrollState)
                         ) {
                             Text(
-                                text = patch,
+                                text = activePatch,
                                 color = TextPrimary,
                                 fontSize = 11.sp,
                                 fontFamily = FontFamily.Monospace,
@@ -140,7 +185,7 @@ fun ExportScreen(
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                text = "Run risk assessment to generate an ORM remediation patch.",
+                                text = "Run risk assessment to generate a remediation patch.",
                                 color = TextDim,
                                 fontSize = 12.sp,
                                 fontFamily = FontFamily.Monospace
@@ -158,7 +203,7 @@ fun ExportScreen(
                 ) {
                     Button(
                         onClick = { viewModel.copyOrmPatchToClipboard(context) },
-                        enabled = patch.isNotBlank(),
+                        enabled = activePatch.isNotBlank(),
                         modifier = Modifier.weight(1f),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = AccentTeal,
@@ -173,7 +218,7 @@ fun ExportScreen(
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = "Copy Patch",
+                            text = "Copy Code",
                             fontWeight = FontWeight.Bold,
                             fontSize = 12.sp
                         )
@@ -181,7 +226,7 @@ fun ExportScreen(
 
                     OutlinedButton(
                         onClick = { viewModel.exportPatchFile(context) },
-                        enabled = patch.isNotBlank(),
+                        enabled = activePatch.isNotBlank(),
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(10.dp),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = TextPrimary),
@@ -195,7 +240,109 @@ fun ExportScreen(
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = "Share .patch",
+                            text = "Share File",
+                            fontSize = 12.sp
+                        )
+                    }
+                }
+            }
+        }
+
+        // Executive Markdown Audit Report Exporter Card
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(14.dp))
+                .background(PanelDark)
+                .border(1.dp, BorderDark, RoundedCornerShape(14.dp))
+                .padding(16.dp)
+        ) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = "COMPLIANCE & AUDIT TRAIL",
+                            color = AccentTeal,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace,
+                            letterSpacing = 1.sp
+                        )
+                        Text(
+                            text = "Executive Audit Report (.md)",
+                            color = TextPrimary,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    Icon(
+                        imageVector = Icons.Default.Description,
+                        contentDescription = "Report",
+                        tint = AccentTeal,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Text(
+                    text = "Generate a comprehensive Markdown audit summary including risk scoring breakdown, call-site inspection details, and migration diffs for team review.",
+                    color = TextDim,
+                    fontSize = 12.sp,
+                    lineHeight = 17.sp
+                )
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Button(
+                        onClick = { viewModel.copyAuditReportToClipboard(context) },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = PanelNested,
+                            contentColor = AccentTeal
+                        ),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, AccentTeal),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ContentCopy,
+                            contentDescription = "Copy Report",
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Copy .md",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp
+                        )
+                    }
+
+                    Button(
+                        onClick = { viewModel.exportAuditReportFile(context) },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = AccentTeal,
+                            contentColor = BgDark
+                        ),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Share,
+                            contentDescription = "Share Report",
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Share Report",
+                            fontWeight = FontWeight.Bold,
                             fontSize = 12.sp
                         )
                     }
