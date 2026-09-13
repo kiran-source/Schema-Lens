@@ -26,9 +26,9 @@ val AccentBlue = Color(0xFF58A6FF)
 val AccentPurple = Color(0xFFA78BFA)
 val AccentGold = Color(0xFFFBBF24)
 
-// Claude Opus Theme Colors
-val ClaudeGradientStart = Color(0xFFD97706)
-val ClaudeGradientEnd = Color(0xFFF59E0B)
+// Accent Warm Colors
+val AccentAmber = Color(0xFFD97706)
+val AccentAmberLight = Color(0xFFF59E0B)
 
 // Gradient Colors
 val GradientStart = Color(0xFF2DD4BF)

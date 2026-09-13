@@ -47,7 +47,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.schemalens.app.ui.theme.AccentTeal
 import com.schemalens.app.ui.theme.BorderDark
-import com.schemalens.app.ui.theme.ClaudeGradientStart
 import com.schemalens.app.ui.theme.PanelDark
 import com.schemalens.app.ui.theme.TextPrimary
 
@@ -78,8 +77,8 @@ fun QuickActionsFab(
             ) {
                 QuickActionItem(
                     icon = Icons.Default.Bolt,
-                    label = "Assess Risk (Claude)",
-                    accentColor = ClaudeGradientStart,
+                    label = "Assess Risk (On-Device SLM)",
+                    accentColor = AccentTeal,
                     onClick = {
                         expanded = false
                         onAssessClick()

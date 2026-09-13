@@ -107,33 +107,24 @@ fun ApiKeyDialog(
 
                 // Provider Options
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    // Claude Opus — Recommended
                     ProviderOption(
-                        title = "⚡ Claude Opus 4",
-                        subtitle = "Anthropic's most powerful model with deep reasoning",
-                        isSelected = selectedProvider == AiProvider.CLAUDE_OPUS,
-                        isRecommended = true,
-                        onClick = { selectedProvider = AiProvider.CLAUDE_OPUS }
-                    )
-
-                    ProviderOption(
-                        title = "✨ SchemaLens / On-Device SLM",
-                        subtitle = "100% on-device air-gapped, zero API key needed",
+                        title = "🔒 SchemaLens On-Device SLM (Air-Gapped)",
+                        subtitle = "100% on-device Gemma 2B inference, zero cloud calls, zero keys needed",
                         isSelected = selectedProvider == AiProvider.ON_DEVICE_SLM,
-                        isRecommended = false,
+                        isRecommended = true,
                         onClick = { selectedProvider = AiProvider.ON_DEVICE_SLM }
                     )
 
                     ProviderOption(
-                        title = "🌐 Custom / OpenAI Endpoint",
-                        subtitle = "Compatible with any OpenAI-format API",
+                        title = "🌐 Custom LLM / OpenAI Endpoint",
+                        subtitle = "Compatible with local Ollama, custom proxies, and LLM servers",
                         isSelected = selectedProvider == AiProvider.CUSTOM_OPENAI,
                         isRecommended = false,
                         onClick = { selectedProvider = AiProvider.CUSTOM_OPENAI }
                     )
                 }
 
-                // API Key input for cloud providers
+                // API Key input for custom endpoints
                 if (selectedProvider != AiProvider.ON_DEVICE_SLM) {
                     Spacer(modifier = Modifier.height(14.dp))
 
@@ -141,12 +132,7 @@ fun ApiKeyDialog(
                         value = keyInput,
                         onValueChange = { keyInput = it },
                         label = {
-                            Text(
-                                when (selectedProvider) {
-                                    AiProvider.CLAUDE_OPUS -> "Anthropic API Key (sk-ant-...)"
-                                    else -> "API Key (Bearer token)"
-                                }
-                            )
+                            Text("API Key (Bearer token)")
                         },
                         singleLine = true,
                         colors = OutlinedTextFieldDefaults.colors(

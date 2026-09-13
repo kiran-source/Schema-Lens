@@ -55,7 +55,6 @@ import com.schemalens.app.data.MigrationStep
 import com.schemalens.app.data.MigrationStepStatus
 import com.schemalens.app.data.RiskSeverity
 import com.schemalens.app.data.SchemaDiffEntry
-import com.schemalens.app.network.AiProvider
 import com.schemalens.app.ui.components.EmptyStateView
 import com.schemalens.app.ui.components.HardwareTelemetryHud
 import com.schemalens.app.ui.components.MigrationTimeline
@@ -64,8 +63,6 @@ import com.schemalens.app.ui.components.SchemaDiffView
 import com.schemalens.app.ui.theme.AccentTeal
 import com.schemalens.app.ui.theme.BgDark
 import com.schemalens.app.ui.theme.BorderDark
-import com.schemalens.app.ui.theme.ClaudeGradientEnd
-import com.schemalens.app.ui.theme.ClaudeGradientStart
 import com.schemalens.app.ui.theme.PanelDark
 import com.schemalens.app.ui.theme.PanelNested
 import com.schemalens.app.ui.theme.RiskBreaking
@@ -229,7 +226,7 @@ fun AssessScreen(
                     label = { Text("Schema Migration Intent / Change Notes", fontSize = 12.sp) },
                     textStyle = TextStyle(fontSize = 12.sp, color = TextPrimary),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = ClaudeGradientStart,
+                        focusedBorderColor = AccentTeal,
                         unfocusedBorderColor = BorderDark,
                         focusedContainerColor = PanelNested,
                         unfocusedContainerColor = PanelNested

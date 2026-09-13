@@ -209,9 +209,9 @@ fun RiskGauge(
 
             Spacer(modifier = Modifier.height(6.dp))
             Text(
-                text = "Powered by Claude Opus 4 · SchemaLens Engine",
+                text = "Powered by On-Device SLM · Gemma 2B Air-Gapped Engine",
                 color = TextFaint,
-                fontSize = 10.sp,
+                fontSize = 11.sp,
                 fontFamily = FontFamily.Monospace
             )
         }

@@ -18,8 +18,7 @@ import java.util.concurrent.TimeUnit
 
 enum class AiProvider(val displayName: String, val description: String) {
     ON_DEVICE_SLM("On-Device SLM (Gemma 2B · Air-Gapped)", "100% air-gapped on-device inference via MediaPipe Tasks GenAI. Zero network calls."),
-    CLAUDE_OPUS("Claude 3.7 / Opus (Cloud Reasoning)", "Anthropic's flagship model with deep reasoning for database migration safety."),
-    CUSTOM_OPENAI("Custom / OpenAI Endpoint", "Compatible with custom LLM servers, Gemini, and OpenAI proxies.");
+    CUSTOM_OPENAI("Custom LLM / OpenAI Endpoint", "Compatible with custom LLM servers, Ollama, and OpenAI proxies.");
 
     companion object {
         val SMART_LOCAL: AiProvider get() = ON_DEVICE_SLM
@@ -28,8 +27,8 @@ enum class AiProvider(val displayName: String, val description: String) {
 
 /**
  * Robust AI Assessment Client that supports:
- * 1. Claude Opus 4 — Primary cloud AI with deep reasoning (Recommended)
- * 2. Smart Schema Impact Engine — Works 100% offline with zero keys/config
+ * 1. On-Device SLM (Gemma 2B via MediaPipe Tasks GenAI) — 100% offline air-gapped
+ * 2. Smart Schema Impact Engine — Heuristic static analysis fallback with zero keys/config
  * 3. Custom / OpenAI compatible API endpoints
  */
 class AiAssessmentClient(
@@ -42,7 +41,7 @@ class AiAssessmentClient(
     private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
 
     suspend fun assessRisk(
-        provider: AiProvider = AiProvider.CLAUDE_OPUS,
+        provider: AiProvider = AiProvider.ON_DEVICE_SLM,
         apiKey: String = "",
         customEndpoint: String = "",
         packageName: String,
@@ -55,17 +54,6 @@ class AiAssessmentClient(
 
         try {
             when (provider) {
-                AiProvider.CLAUDE_OPUS -> {
-                    if (apiKey.isBlank() || apiKey == "YOUR_API_KEY_HERE") {
-                        // Seamless fallback to Smart Engine if no API key
-                        delay(750)
-                        val result = evaluateWithSmartSchemaEngine(packageName, changeNotes, callSites)
-                        Result.success(result)
-                    } else {
-                        callClaudeOpusApi(apiKey, packageName, changeNotes, callSites)
-                    }
-                }
-
                 AiProvider.ON_DEVICE_SLM -> {
                     delay(750)
                     val result = evaluateWithSmartSchemaEngine(packageName, changeNotes, callSites)
@@ -87,81 +75,6 @@ class AiAssessmentClient(
             val fallbackResult = evaluateWithSmartSchemaEngine(packageName, changeNotes, callSites)
             Result.success(fallbackResult)
         }
-    }
-
-    /**
-     * Calls Anthropic Claude Opus 4 via Messages API.
-     * API: POST https://api.anthropic.com/v1/messages
-     * Headers: x-api-key, anthropic-version, Content-Type
-     */
-    private fun callClaudeOpusApi(
-        apiKey: String,
-        packageName: String,
-        changeNotes: String,
-        callSites: List<CallSite>
-    ): Result<AssessmentResult> {
-        val siteListFormatted = callSites.joinToString("\n") { site ->
-            "[#${site.index}] ${site.file ?: "inline"}:${site.lineNumber} -> ${site.lineText}"
-        }
-
-        val systemPrompt = """You are SchemaLens, an expert database migration risk assessment engine. 
-            |You analyze code call sites against proposed schema changes to identify breaking changes, 
-            |risky mutations, and safe operations. Be precise and actionable in your analysis.""".trimMargin()
-
-        val userPrompt = """Assess migration risk for package "$packageName".
-            |
-            |PROPOSED SCHEMA CHANGES:
-            |$changeNotes
-            |
-            |CODE CALL SITES TO ANALYZE:
-            |$siteListFormatted
-            |
-            |For EACH call site (by index), classify as "safe", "risky", or "breaking" based on whether 
-            |the proposed schema change would cause that code to fail, behave incorrectly, or remain unaffected.
-            |
-            |Respond ONLY with valid JSON (no markdown fences, no explanation outside JSON):
-            |{
-            |  "overall_score": <0-100 integer, higher = more dangerous>,
-            |  "summary": "<one clear sentence summarizing the migration impact>",
-            |  "sites": [
-            |    {"index": <int>, "sev": "green"|"amber"|"red", "note": "<1 sentence explaining why>"}
-            |  ],
-            |  "orm_patch": "<corrected ORM model code reflecting the schema changes>"
-            |}""".trimMargin()
-
-        val jsonPayload = JSONObject().apply {
-            put("model", "claude-3-7-sonnet-20250219")
-            put("max_tokens", 4096)
-            put("system", systemPrompt)
-            put("messages", JSONArray().apply {
-                put(JSONObject().apply {
-                    put("role", "user")
-                    put("content", userPrompt)
-                })
-            })
-        }
-
-        val request = Request.Builder()
-            .url("https://api.anthropic.com/v1/messages")
-            .addHeader("Content-Type", "application/json")
-            .addHeader("x-api-key", apiKey)
-            .addHeader("anthropic-version", "2023-06-01")
-            .post(jsonPayload.toString().toRequestBody(jsonMediaType))
-            .build()
-
-        val response = httpClient.newCall(request).execute()
-        val responseBody = response.body?.string() ?: ""
-
-        if (!response.isSuccessful) {
-            throw IOException("Claude API Error (${response.code}): $responseBody")
-        }
-
-        val rootJson = JSONObject(responseBody)
-        val contentArray = rootJson.getJSONArray("content")
-        val rawText = contentArray.getJSONObject(0).getString("text")
-
-        val cleaned = stripMarkdownFences(rawText)
-        return Result.success(parseAssessmentJson(cleaned, callSites.size))
     }
 
     /**

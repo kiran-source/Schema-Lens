@@ -38,7 +38,6 @@ import com.schemalens.app.data.AppTab
 import com.schemalens.app.ui.theme.AccentTeal
 import com.schemalens.app.ui.theme.BgDarkElevated
 import com.schemalens.app.ui.theme.BorderDark
-import com.schemalens.app.ui.theme.ClaudeGradientStart
 import com.schemalens.app.ui.theme.GlowTeal
 import com.schemalens.app.ui.theme.PanelDark
 import com.schemalens.app.ui.theme.TextDim
@@ -75,7 +74,7 @@ fun BottomNavBar(
                     AppTab.EXPORT -> Icons.Default.Share
                 }
 
-                val activeColor = if (tab == AppTab.ASSESS) ClaudeGradientStart else AccentTeal
+                val activeColor = AccentTeal
                 val iconTint by animateColorAsState(
                     targetValue = if (isSelected) activeColor else TextDim,
                     label = "tabIconTint"

@@ -43,7 +43,7 @@ data class SiteVerdict(
 )
 
 /**
- * Complete assessment response from Claude Opus 4.
+ * Complete assessment response from SchemaLens Risk Assessment Engine.
  */
 data class AssessmentResult(
     val overallScore: Int,

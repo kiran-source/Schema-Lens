@@ -6,16 +6,6 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
-val localProperties = Properties()
-val localPropertiesFile = rootProject.file("local.properties")
-if (localPropertiesFile.exists()) {
-    localProperties.load(localPropertiesFile.inputStream())
-}
-
-val anthropicApiKey = localProperties.getProperty("ANTHROPIC_API_KEY")
-    ?: System.getenv("ANTHROPIC_API_KEY")
-    ?: "YOUR_API_KEY_HERE"
-
 android {
     namespace = "com.schemalens.app"
     compileSdk = 34
@@ -31,8 +21,6 @@ android {
         vectorDrawables {
             useSupportLibrary = true
         }
-
-        buildConfigField("String", "ANTHROPIC_API_KEY", "\"$anthropicApiKey\"")
     }
 
     buildTypes {
@@ -44,7 +32,6 @@ android {
             )
         }
         debug {
-            buildConfigField("String", "ANTHROPIC_API_KEY", "\"$anthropicApiKey\"")
         }
     }
 
