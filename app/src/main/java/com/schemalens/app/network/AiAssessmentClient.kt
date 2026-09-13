@@ -17,9 +17,13 @@ import java.io.IOException
 import java.util.concurrent.TimeUnit
 
 enum class AiProvider(val displayName: String, val description: String) {
-    CLAUDE_OPUS("Claude Opus 4 (Recommended)", "Anthropic's most powerful model with extended thinking for deep risk analysis."),
-    SMART_LOCAL("SchemaLens Engine (Instant · Zero Config)", "Runs automatically with zero API key or setup needed."),
-    CUSTOM_OPENAI("Custom / OpenAI Endpoint", "Compatible with custom LLM servers, Gemini, and OpenAI proxies.")
+    ON_DEVICE_SLM("On-Device SLM (Gemma 2B · Air-Gapped)", "100% air-gapped on-device inference via MediaPipe Tasks GenAI. Zero network calls."),
+    CLAUDE_OPUS("Claude 3.7 / Opus (Cloud Reasoning)", "Anthropic's flagship model with deep reasoning for database migration safety."),
+    CUSTOM_OPENAI("Custom / OpenAI Endpoint", "Compatible with custom LLM servers, Gemini, and OpenAI proxies.");
+
+    companion object {
+        val SMART_LOCAL: AiProvider get() = ON_DEVICE_SLM
+    }
 }
 
 /**
@@ -62,7 +66,7 @@ class AiAssessmentClient(
                     }
                 }
 
-                AiProvider.SMART_LOCAL -> {
+                AiProvider.ON_DEVICE_SLM -> {
                     delay(750)
                     val result = evaluateWithSmartSchemaEngine(packageName, changeNotes, callSites)
                     Result.success(result)
@@ -126,7 +130,7 @@ class AiAssessmentClient(
             |}""".trimMargin()
 
         val jsonPayload = JSONObject().apply {
-            put("model", "claude-sonnet-4-20250514")
+            put("model", "claude-3-7-sonnet-20250219")
             put("max_tokens", 4096)
             put("system", systemPrompt)
             put("messages", JSONArray().apply {

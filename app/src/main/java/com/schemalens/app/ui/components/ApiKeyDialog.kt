@@ -117,11 +117,11 @@ fun ApiKeyDialog(
                     )
 
                     ProviderOption(
-                        title = "✨ SchemaLens Engine (Built-in)",
-                        subtitle = "Instant results, zero API key needed",
-                        isSelected = selectedProvider == AiProvider.SMART_LOCAL,
+                        title = "✨ SchemaLens / On-Device SLM",
+                        subtitle = "100% on-device air-gapped, zero API key needed",
+                        isSelected = selectedProvider == AiProvider.ON_DEVICE_SLM,
                         isRecommended = false,
-                        onClick = { selectedProvider = AiProvider.SMART_LOCAL }
+                        onClick = { selectedProvider = AiProvider.ON_DEVICE_SLM }
                     )
 
                     ProviderOption(
@@ -134,7 +134,7 @@ fun ApiKeyDialog(
                 }
 
                 // API Key input for cloud providers
-                if (selectedProvider != AiProvider.SMART_LOCAL) {
+                if (selectedProvider != AiProvider.ON_DEVICE_SLM) {
                     Spacer(modifier = Modifier.height(14.dp))
 
                     OutlinedTextField(

@@ -47,9 +47,12 @@ import com.schemalens.app.ui.theme.RiskSafe
 import com.schemalens.app.ui.theme.TextDim
 import com.schemalens.app.ui.theme.TextPrimary
 
+import com.schemalens.app.network.AiProvider
+
 @Composable
 fun HardwareTelemetryHud(
     latencyMs: Long,
+    provider: AiProvider = AiProvider.ON_DEVICE_SLM,
     modifier: Modifier = Modifier
 ) {
     // Dynamic runtime heap estimate
@@ -69,6 +72,8 @@ fun HardwareTelemetryHud(
         label = "hudGlow"
     )
 
+    val isAirGapped = provider == AiProvider.ON_DEVICE_SLM
+
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -77,12 +82,16 @@ fun HardwareTelemetryHud(
                 Brush.horizontalGradient(
                     colors = listOf(
                         PanelDark,
-                        Color(0xFF102523),
+                        if (isAirGapped) Color(0xFF102523) else Color(0xFF1E172E),
                         PanelDark
                     )
                 )
             )
-            .border(1.dp, AccentTeal.copy(alpha = 0.4f * glowAlpha), RoundedCornerShape(12.dp))
+            .border(
+                1.dp,
+                if (isAirGapped) AccentTeal.copy(alpha = 0.4f * glowAlpha) else Color(0xFFD4A27F).copy(alpha = 0.5f * glowAlpha),
+                RoundedCornerShape(12.dp)
+            )
             .padding(12.dp)
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
@@ -96,12 +105,12 @@ fun HardwareTelemetryHud(
                         modifier = Modifier
                             .size(8.dp)
                             .clip(CircleShape)
-                            .background(RiskSafe.copy(alpha = glowAlpha))
+                            .background(if (isAirGapped) RiskSafe.copy(alpha = glowAlpha) else Color(0xFFD4A27F).copy(alpha = glowAlpha))
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "AIR-GAP HARDWARE TELEMETRY",
-                        color = AccentTeal,
+                        text = if (isAirGapped) "AIR-GAP HARDWARE TELEMETRY" else "CLAUDE NEURAL TELEMETRY",
+                        color = if (isAirGapped) AccentTeal else Color(0xFFD4A27F),
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
                         fontFamily = FontFamily.Monospace,
@@ -110,8 +119,8 @@ fun HardwareTelemetryHud(
                 }
 
                 Text(
-                    text = "Zero Cloud Calls",
-                    color = RiskSafe,
+                    text = if (isAirGapped) "Zero Cloud Calls" else "Anthropic Claude API",
+                    color = if (isAirGapped) RiskSafe else Color(0xFFD4A27F),
                     fontSize = 10.sp,
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Medium
@@ -126,9 +135,9 @@ fun HardwareTelemetryHud(
             ) {
                 TelemetryStatItem(
                     icon = Icons.Default.Bolt,
-                    label = "SLM LATENCY",
+                    label = if (isAirGapped) "SLM LATENCY" else "API LATENCY",
                     value = "${latencyMs}ms",
-                    accentColor = AccentTeal
+                    accentColor = if (isAirGapped) AccentTeal else Color(0xFFD4A27F)
                 )
 
                 TelemetryStatItem(
@@ -141,8 +150,8 @@ fun HardwareTelemetryHud(
                 TelemetryStatItem(
                     icon = Icons.Default.Shield,
                     label = "NET TRAFFIC",
-                    value = "0 KB",
-                    accentColor = RiskSafe
+                    value = if (isAirGapped) "0 KB" else "TLS / HTTPS",
+                    accentColor = if (isAirGapped) RiskSafe else Color(0xFFD4A27F)
                 )
             }
         }
