@@ -147,10 +147,7 @@ fun AssessScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         // Real-Time Hardware / AI Telemetry HUD
-        HardwareTelemetryHud(
-            latencyMs = uiState.inferenceLatencyMs,
-            provider = uiState.aiProvider
-        )
+        HardwareTelemetryHud(latencyMs = uiState.inferenceLatencyMs)
 
         // AI Model Engine & Change Notes Card
         Box(
@@ -169,7 +166,7 @@ fun AssessScreen(
                 ) {
                     Column {
                         Text(
-                            text = "AI REASONING ENGINE",
+                            text = "ON-DEVICE SLM RISK ASSESSMENT",
                             color = AccentTeal,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
@@ -177,11 +174,7 @@ fun AssessScreen(
                             letterSpacing = 1.sp
                         )
                         Text(
-                            text = when (uiState.aiProvider) {
-                                AiProvider.CLAUDE_OPUS -> "Claude 3.7 / Opus (Cloud)"
-                                AiProvider.CUSTOM_OPENAI -> "Custom AI Endpoint"
-                                AiProvider.ON_DEVICE_SLM -> "Gemma 2B (On-Device SLM)"
-                            },
+                            text = "Gemma 2B · Zero Network Calls",
                             color = TextPrimary,
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold
@@ -191,17 +184,13 @@ fun AssessScreen(
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(6.dp))
-                            .background(if (uiState.aiProvider == AiProvider.ON_DEVICE_SLM) Color(0xFF102A27) else Color(0xFF261D15))
-                            .border(
-                                0.8.dp,
-                                if (uiState.aiProvider == AiProvider.ON_DEVICE_SLM) AccentTeal.copy(alpha = 0.4f) else Color(0xFFD4A27F).copy(alpha = 0.5f),
-                                RoundedCornerShape(6.dp)
-                            )
+                            .background(Color(0xFF102A27))
+                            .border(0.8.dp, AccentTeal.copy(alpha = 0.4f), RoundedCornerShape(6.dp))
                             .padding(horizontal = 8.dp, vertical = 4.dp)
                     ) {
                         Text(
-                            text = uiState.modelStatusBadge,
-                            color = if (uiState.aiProvider == AiProvider.ON_DEVICE_SLM) AccentTeal else Color(0xFFD4A27F),
+                            text = "🔒 100% on-device SLM · air-gapped",
+                            color = AccentTeal,
                             fontSize = 10.sp,
                             fontFamily = FontFamily.Monospace,
                             fontWeight = FontWeight.Bold
@@ -209,70 +198,7 @@ fun AssessScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(10.dp))
-
-                // Engine Selector Row
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    FilterChip(
-                        selected = uiState.aiProvider == AiProvider.ON_DEVICE_SLM,
-                        onClick = { viewModel.selectAiProvider(AiProvider.ON_DEVICE_SLM) },
-                        label = {
-                            Text(
-                                "🔒 On-Device SLM",
-                                fontSize = 11.sp,
-                                fontFamily = FontFamily.Monospace,
-                                fontWeight = if (uiState.aiProvider == AiProvider.ON_DEVICE_SLM) FontWeight.Bold else FontWeight.Normal
-                            )
-                        },
-                        colors = FilterChipDefaults.filterChipColors(
-                            containerColor = PanelNested,
-                            selectedContainerColor = AccentTeal,
-                            selectedLabelColor = BgDark,
-                            labelColor = TextDim
-                        ),
-                        shape = RoundedCornerShape(8.dp)
-                    )
-
-                    FilterChip(
-                        selected = uiState.aiProvider == AiProvider.CLAUDE_OPUS,
-                        onClick = { viewModel.selectAiProvider(AiProvider.CLAUDE_OPUS) },
-                        label = {
-                            Text(
-                                "🧠 Claude Opus",
-                                fontSize = 11.sp,
-                                fontFamily = FontFamily.Monospace,
-                                fontWeight = if (uiState.aiProvider == AiProvider.CLAUDE_OPUS) FontWeight.Bold else FontWeight.Normal
-                            )
-                        },
-                        colors = FilterChipDefaults.filterChipColors(
-                            containerColor = PanelNested,
-                            selectedContainerColor = Color(0xFFD4A27F),
-                            selectedLabelColor = Color(0xFF140D07),
-                            labelColor = TextDim
-                        ),
-                        shape = RoundedCornerShape(8.dp)
-                    )
-
-                    Spacer(modifier = Modifier.weight(1f))
-
-                    IconButton(
-                        onClick = onOpenSettings,
-                        modifier = Modifier.size(32.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Settings,
-                            contentDescription = "AI Settings",
-                            tint = AccentTeal,
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
-                }
-
-                if (uiState.isModelWeightsMissing && uiState.aiProvider == AiProvider.ON_DEVICE_SLM) {
+                if (uiState.isModelWeightsMissing) {
                     Spacer(modifier = Modifier.height(8.dp))
                     Box(
                         modifier = Modifier
@@ -393,41 +319,29 @@ fun AssessScreen(
 
                 Spacer(modifier = Modifier.height(14.dp))
 
-                val buttonColor = if (uiState.aiProvider == AiProvider.CLAUDE_OPUS) Color(0xFFD4A27F) else AccentTeal
-                val buttonLabel = when (uiState.aiProvider) {
-                    AiProvider.CLAUDE_OPUS -> "Assess Breaking Risk (Claude 3.7 / Opus)"
-                    AiProvider.CUSTOM_OPENAI -> "Assess Breaking Risk (Custom AI)"
-                    AiProvider.ON_DEVICE_SLM -> "Assess Breaking Risk (On-Device SLM)"
-                }
-                val progressLabel = when (uiState.aiProvider) {
-                    AiProvider.CLAUDE_OPUS -> "Reasoning with Claude 3.7 / Opus..."
-                    AiProvider.CUSTOM_OPENAI -> "Reasoning with Custom AI Endpoint..."
-                    AiProvider.ON_DEVICE_SLM -> "Reasoning with On-Device SLM (Gemma 2B)..."
-                }
-
                 // Run Assessment Button
                 Button(
                     onClick = { viewModel.performAssessment(context) },
                     enabled = !uiState.isAssessing && uiState.callSites.isNotEmpty(),
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = buttonColor,
-                        contentColor = if (uiState.aiProvider == AiProvider.CLAUDE_OPUS) Color(0xFF140D07) else BgDark
+                        containerColor = AccentTeal,
+                        contentColor = BgDark
                     ),
                     shape = RoundedCornerShape(10.dp)
                 ) {
                     if (uiState.isAssessing) {
                         CircularProgressIndicator(
-                            color = if (uiState.aiProvider == AiProvider.CLAUDE_OPUS) Color(0xFF140D07) else BgDark,
+                            color = BgDark,
                             modifier = Modifier.size(16.dp),
                             strokeWidth = 2.dp
                         )
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text(progressLabel, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        Text("Reasoning with On-Device SLM (Gemma 2B)...", fontSize = 13.sp, fontWeight = FontWeight.Bold)
                     } else {
                         Icon(imageVector = Icons.Default.Bolt, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text(buttonLabel, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        Text("Assess Breaking Risk (On-Device SLM)", fontSize = 13.sp, fontWeight = FontWeight.Bold)
                     }
                 }
 
@@ -443,9 +357,6 @@ fun AssessScreen(
             val breakingCount = uiState.callSites.count { it.verdict?.sev == RiskSeverity.BREAKING }
             val riskyCount = uiState.callSites.count { it.verdict?.sev == RiskSeverity.RISKY }
             val safeCount = uiState.callSites.count { it.verdict?.sev == RiskSeverity.SAFE }
-
-            // Air-Gap Hardware Telemetry HUD
-            HardwareTelemetryHud(latencyMs = uiState.inferenceLatencyMs)
 
             // Speedometer Risk Gauge
             RiskGauge(
@@ -467,8 +378,8 @@ fun AssessScreen(
             ) {
                 Column(modifier = Modifier.fillMaxWidth()) {
                     Text(
-                        text = "AI EXECUTIVE SUMMARY",
-                        color = ClaudeGradientStart,
+                        text = "ON-DEVICE SLM EXECUTIVE SUMMARY",
+                        color = AccentTeal,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         fontFamily = FontFamily.Monospace,
@@ -493,8 +404,8 @@ fun AssessScreen(
             EmptyStateView(
                 icon = Icons.Default.Speed,
                 title = "No Risk Assessment Yet",
-                description = "Configure your change notes above and tap 'Assess Breaking Risk' to trigger Claude Opus reasoning.",
-                accentColor = ClaudeGradientStart
+                description = "Configure your change notes above and tap 'Assess Breaking Risk' to trigger on-device SLM reasoning (Gemma 2B).",
+                accentColor = AccentTeal
             )
 
             // Still show timeline preview

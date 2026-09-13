@@ -68,8 +68,8 @@ data class MainUiState(
     val inferenceLatencyMs: Long = 135L,
     val selectedDialect: Dialect = Dialect.DRIZZLE,
 
-    // AI Engine Configuration
-    val aiProvider: AiProvider = AiProvider.CLAUDE_OPUS,
+    // AI Engine Configuration (100% On-Device Air-Gapped SLM)
+    val aiProvider: AiProvider = AiProvider.ON_DEVICE_SLM,
     val apiKey: String = "",
     val customEndpoint: String = "",
 
@@ -407,63 +407,25 @@ class MainViewModel(
 
             val startTime = System.currentTimeMillis()
             try {
-                val assessment: AssessmentResult = when (state.aiProvider) {
-                    AiProvider.CLAUDE_OPUS -> {
-                        _uiState.update {
-                            it.copy(
-                                modelStatusBadge = if (state.apiKey.isNotBlank()) "🧠 Claude 3.7 / Opus · Live API" else "🧠 Claude Opus · Fallback Engine",
-                                isModelWeightsMissing = false
-                            )
-                        }
-                        val res = apiClient.assessRisk(
-                            provider = AiProvider.CLAUDE_OPUS,
-                            apiKey = state.apiKey,
-                            customEndpoint = state.customEndpoint,
-                            packageName = state.packageName,
-                            changeNotes = state.changeNotes,
-                            callSites = state.callSites
+                val manager = localLlmManager ?: context?.let { LocalLlmInferenceManager(it.applicationContext) }
+                val assessment: AssessmentResult = if (manager != null) {
+                    _uiState.update {
+                        it.copy(
+                            modelStatusBadge = manager.modelStatusText,
+                            isModelWeightsMissing = !manager.isModelAvailable
                         )
-                        res.getOrThrow()
                     }
-                    AiProvider.CUSTOM_OPENAI -> {
-                        _uiState.update {
-                            it.copy(
-                                modelStatusBadge = "🌐 Custom OpenAI Endpoint",
-                                isModelWeightsMissing = false
-                            )
-                        }
-                        val res = apiClient.assessRisk(
-                            provider = AiProvider.CUSTOM_OPENAI,
-                            apiKey = state.apiKey,
-                            customEndpoint = state.customEndpoint,
-                            packageName = state.packageName,
-                            changeNotes = state.changeNotes,
-                            callSites = state.callSites
-                        )
-                        res.getOrThrow()
-                    }
-                    AiProvider.ON_DEVICE_SLM -> {
-                        val manager = localLlmManager ?: context?.let { LocalLlmInferenceManager(it.applicationContext) }
-                        if (manager != null) {
-                            _uiState.update {
-                                it.copy(
-                                    modelStatusBadge = manager.modelStatusText,
-                                    isModelWeightsMissing = !manager.isModelAvailable
-                                )
-                            }
-                            manager.assessRiskOnDevice(
-                                packageName = state.packageName,
-                                changeNotes = state.changeNotes,
-                                callSites = state.callSites
-                            )
-                        } else {
-                            apiClient.evaluateWithSmartSchemaEngine(
-                                packageName = state.packageName,
-                                changeNotes = state.changeNotes,
-                                callSites = state.callSites
-                            )
-                        }
-                    }
+                    manager.assessRiskOnDevice(
+                        packageName = state.packageName,
+                        changeNotes = state.changeNotes,
+                        callSites = state.callSites
+                    )
+                } else {
+                    apiClient.evaluateWithSmartSchemaEngine(
+                        packageName = state.packageName,
+                        changeNotes = state.changeNotes,
+                        callSites = state.callSites
+                    )
                 }
 
                 val elapsed = (System.currentTimeMillis() - startTime).coerceAtLeast(42)
@@ -489,12 +451,6 @@ class MainViewModel(
                     ormPatch = assessment.ormPatch
                 )
 
-                val engineLabel = when (state.aiProvider) {
-                    AiProvider.CLAUDE_OPUS -> "Claude 3.7 / Opus"
-                    AiProvider.CUSTOM_OPENAI -> "Custom AI"
-                    AiProvider.ON_DEVICE_SLM -> "On-Device SLM"
-                }
-
                 _uiState.update {
                     it.copy(
                         isAssessing = false,
@@ -505,26 +461,16 @@ class MainViewModel(
                         assessmentError = null
                     )
                 }
-                showSnackbar("$engineLabel Assessment complete in ${elapsed}ms · Risk: ${assessment.overallScore}/100")
+                showSnackbar("On-Device SLM Assessment complete in ${elapsed}ms · Risk: ${assessment.overallScore}/100")
             } catch (e: Exception) {
                 _uiState.update {
                     it.copy(
                         isAssessing = false,
-                        assessmentError = e.localizedMessage ?: "Failed to perform assessment"
+                        assessmentError = e.localizedMessage ?: "Failed to perform on-device SLM assessment"
                     )
                 }
             }
         }
-    }
-
-    fun selectAiProvider(provider: AiProvider) {
-        val badge = when (provider) {
-            AiProvider.ON_DEVICE_SLM -> localLlmManager?.modelStatusText ?: "🔒 100% on-device SLM · air-gapped"
-            AiProvider.CLAUDE_OPUS -> if (_uiState.value.apiKey.isNotBlank()) "🧠 Claude 3.7 / Opus · Live API" else "🧠 Claude Opus Engine · Ready"
-            AiProvider.CUSTOM_OPENAI -> "🌐 Custom OpenAI / Proxy Endpoint"
-        }
-        _uiState.update { it.copy(aiProvider = provider, modelStatusBadge = badge) }
-        showSnackbar("Active Engine: ${provider.displayName}")
     }
 
     fun selectDialect(dialect: Dialect) {
