@@ -979,3 +979,116 @@ fun PreviewSheet(
         }
     }
 }
+
+/**
+ * Preview of the complete Schema Studio Review dashboard inside Android Studio.
+ * Allows viewing and interacting with the UI without needing a physical device or emulator.
+ */
+@androidx.compose.ui.tooling.preview.Preview(
+    name = "Schema Studio Review Layout",
+    showBackground = true,
+    backgroundColor = 0xFF090A0C,
+    widthDp = 412,
+    heightDp = 892
+)
+@Composable
+fun SchemaStudioReviewPreview() {
+    val sampleUiState = MainUiState(
+        currentTab = AppTab.ASSESS,
+        schemaDdl = SampleData.DEFAULT_SCHEMA_DDL
+    )
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black),
+        contentAlignment = Alignment.Center
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .widthIn(max = 420.dp)
+                .clip(RoundedCornerShape(40.dp))
+                .background(Color(0xFF090A0C))
+                .border(1.dp, Color(0xFF1E222A), RoundedCornerShape(40.dp))
+        ) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                // Header
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 14.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFF14171E))
+                                .border(1.dp, Color(0xFF222733), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Storage,
+                                contentDescription = "Logo",
+                                tint = Color.White,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                        Column {
+                            Text(
+                                text = "Schema Studio",
+                                color = Color.White,
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "production · main",
+                                color = Color(0xFF8B93A1),
+                                fontSize = 12.sp
+                            )
+                        }
+                    }
+
+                    IconButton(
+                        onClick = {},
+                        modifier = Modifier
+                            .size(38.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFF14171E))
+                            .border(1.dp, Color(0xFF222733), CircleShape)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Tune,
+                            contentDescription = "Settings",
+                            tint = Color(0xFFD1D5DB),
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+
+                // Progress Stepper
+                ProgressStepper(
+                    currentStep = 2,
+                    onStepClick = {}
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Studio Review Dashboard Content
+                SchemaStudioReviewContent(
+                    uiState = sampleUiState,
+                    viewModel = androidx.lifecycle.viewmodel.compose.viewModel(),
+                    onOpenSettings = {},
+                    onCopyDdl = {}
+                )
+            }
+        }
+    }
+}
+
