@@ -25,8 +25,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MicOff
+import androidx.compose.material.icons.filled.QuestionAnswer
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -102,9 +104,9 @@ fun AssessScreen(
             status = if (uiState.callSites.isNotEmpty()) MigrationStepStatus.COMPLETED else MigrationStepStatus.PENDING
         ),
         MigrationStep(
-            title = "3. Cloud Risk Reasoning",
+            title = "3. On-Device SLM Reasoning",
             description = when {
-                uiState.isAssessing -> "Reasoning with ${uiState.aiProvider.displayName}..."
+                uiState.isAssessing -> "Reasoning with on-device Gemma 2B SLM..."
                 uiState.assessmentResult != null -> "Assessed with score ${uiState.assessmentResult.overallScore}/100"
                 else -> "Ready for assessment"
             },
@@ -407,6 +409,112 @@ fun AssessScreen(
 
             // Still show timeline preview
             MigrationTimeline(steps = migrationSteps)
+        }
+
+        // Voice Query to SLM — "Ask SLM" button + answer card
+        if (uiState.assessmentResult != null) {
+            // "Ask SLM" voice query button
+            Button(
+                onClick = { viewModel.askVoiceQuery(context) },
+                enabled = !uiState.isVoiceQuerying,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = PanelDark,
+                    contentColor = AccentTeal,
+                    disabledContainerColor = PanelNested,
+                    disabledContentColor = TextDim
+                ),
+                border = androidx.compose.foundation.BorderStroke(1.dp, AccentTeal.copy(alpha = 0.4f))
+            ) {
+                if (uiState.isVoiceQuerying) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        color = AccentTeal,
+                        strokeWidth = 2.dp
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = if (uiState.voicePartialResult.isNotBlank())
+                            "\"${uiState.voicePartialResult}\"" else "Listening...",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.sp,
+                        maxLines = 1
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Default.QuestionAnswer,
+                        contentDescription = "Ask SLM",
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "\uD83C\uDF99 Ask SLM — Tap to Voice Query",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp
+                    )
+                }
+            }
+
+            // Dismissible voice query answer card
+            if (uiState.voiceQueryAnswer != null) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(PanelDark)
+                        .border(1.dp, AccentTeal.copy(alpha = 0.3f), RoundedCornerShape(14.dp))
+                        .padding(14.dp)
+                ) {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.QuestionAnswer,
+                                    contentDescription = "SLM Answer",
+                                    tint = AccentTeal,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Text(
+                                    text = "SLM VOICE RESPONSE",
+                                    color = AccentTeal,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    fontFamily = FontFamily.Monospace,
+                                    letterSpacing = 1.sp
+                                )
+                            }
+                            IconButton(
+                                onClick = { viewModel.dismissVoiceQueryAnswer() },
+                                modifier = Modifier.size(24.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Dismiss",
+                                    tint = TextDim,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = uiState.voiceQueryAnswer,
+                            color = TextPrimary,
+                            fontSize = 13.sp,
+                            lineHeight = 18.sp
+                        )
+                    }
+                }
+            }
         }
 
         Spacer(modifier = Modifier.height(40.dp))

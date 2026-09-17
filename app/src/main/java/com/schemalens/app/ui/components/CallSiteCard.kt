@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.schemalens.app.data.CallSite
 import com.schemalens.app.data.RiskSeverity
+import com.schemalens.app.haptic.HapticFeedbackManager
 import com.schemalens.app.ui.theme.AccentTeal
 import com.schemalens.app.ui.theme.BorderDark
 import com.schemalens.app.ui.theme.PanelDark
@@ -54,6 +55,7 @@ import com.schemalens.app.ui.theme.RiskSafeBg
 import com.schemalens.app.ui.theme.TextDim
 import com.schemalens.app.ui.theme.TextFaint
 import com.schemalens.app.ui.theme.TextPrimary
+import androidx.compose.ui.platform.LocalContext
 
 @Composable
 fun CallSiteCard(
@@ -62,6 +64,7 @@ fun CallSiteCard(
 ) {
     var isExpanded by remember { mutableStateOf(false) }
     val severity = site.verdict?.sev ?: RiskSeverity.PENDING
+    val context = LocalContext.current
 
     val (accentColor, chipBg, chipText) = when (severity) {
         RiskSeverity.BREAKING -> Triple(RiskBreaking, RiskBreakingBg, "BREAKING")
@@ -82,7 +85,13 @@ fun CallSiteCard(
             .clip(RoundedCornerShape(12.dp))
             .background(PanelDark)
             .border(1.dp, BorderDark, RoundedCornerShape(12.dp))
-            .clickable { isExpanded = !isExpanded }
+            .clickable {
+                isExpanded = !isExpanded
+                // Haptic feedback on BREAKING card tap
+                if (severity == RiskSeverity.BREAKING) {
+                    HapticFeedbackManager.playRiskFeedback(context, severity)
+                }
+            }
     ) {
         Row(
             modifier = Modifier

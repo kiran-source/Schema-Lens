@@ -9,6 +9,8 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.schemalens.app.BuildConfig
+import com.schemalens.app.bridge.HotPatchCompanion
+import com.schemalens.app.cicd.GitHookGenerator
 import com.schemalens.app.data.AppTab
 import com.schemalens.app.data.AppZone
 import com.schemalens.app.data.AssessmentHistoryEntry
@@ -18,6 +20,7 @@ import com.schemalens.app.data.Dialect
 import com.schemalens.app.data.RiskSeverity
 import com.schemalens.app.data.SampleData
 import com.schemalens.app.data.SchemaEntity
+import com.schemalens.app.haptic.HapticFeedbackManager
 import com.schemalens.app.network.AiAssessmentClient
 import com.schemalens.app.network.AiProvider
 import com.schemalens.app.ocr.TextRecognitionHelper
@@ -25,11 +28,13 @@ import com.schemalens.app.parser.ImportTraceParser
 import com.schemalens.app.parser.SchemaParser
 import com.schemalens.app.slm.LocalLlmInferenceManager
 import com.schemalens.app.voice.VoiceRecognizerHelper
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 data class MainUiState(
     val currentTab: AppTab = AppTab.SCHEMA,
@@ -75,6 +80,16 @@ data class MainUiState(
 
     // ER Schema State (Red Light stretch)
     val schemaEntities: List<SchemaEntity> = emptyList(),
+
+    // Dual-Screen Hot-Patch Companion State
+    val highlightedCallSiteIndex: Int? = null,
+
+    // Voice Query to SLM State
+    val voiceQueryAnswer: String? = null,
+    val isVoiceQuerying: Boolean = false,
+
+    // Git Hook Generator State
+    val selectedShellType: GitHookGenerator.ShellType = GitHookGenerator.ShellType.BASH,
 
     // User Feedback
     val snackbarMessage: String? = null
@@ -462,6 +477,11 @@ class MainViewModel(
                     )
                 }
                 showSnackbar("On-Device SLM Assessment complete in ${elapsed}ms · Risk: ${assessment.overallScore}/100")
+
+                // Trigger haptic feedback for tactile risk confirmation
+                if (context != null) {
+                    HapticFeedbackManager.playAssessmentComplete(context, assessment.overallScore)
+                }
             } catch (e: Exception) {
                 _uiState.update {
                     it.copy(
@@ -617,6 +637,210 @@ class MainViewModel(
         }
         performTrace()
         showSnackbar("Loaded Drizzle ORM demo preset")
+    }
+
+    // ─── Dual-Screen Hot-Patch Companion (Office Kit Supercharge) ────────
+
+    fun hotPatchToIde(context: Context) {
+        val state = _uiState.value
+        val patchCode = getActivePatch(context)
+        if (patchCode.isBlank() || patchCode.startsWith("// No")) {
+            showSnackbar("No migration patch available — run assessment first")
+            return
+        }
+
+        val payload = HotPatchCompanion.buildStructuredPayload(
+            patchCode = patchCode,
+            dialect = state.selectedDialect,
+            riskScore = state.assessmentResult?.overallScore,
+            targetFile = "schema${state.selectedDialect.fileExtension}"
+        )
+
+        // Copy structured payload to clipboard
+        HotPatchCompanion.copyToClipboard(context, payload)
+
+        // Trigger haptic confirmation
+        HapticFeedbackManager.playConfirmationTap(context)
+
+        // Fire share intent for Office Kit bridge
+        try {
+            HotPatchCompanion.shareToIde(context, payload, state.selectedDialect)
+        } catch (e: Exception) {
+            // If share fails, the clipboard copy is still valid
+            showSnackbar("⚡ Hot-patch copied to clipboard (share unavailable)")
+            return
+        }
+        showSnackbar("⚡ Hot-patch streamed to IDE via Office Kit bridge")
+    }
+
+    fun hotPatchCallSite(context: Context, siteIndex: Int) {
+        val state = _uiState.value
+        val site = state.callSites.getOrNull(siteIndex) ?: return
+        val remediation = site.verdict?.note ?: "// Review this call site manually"
+
+        val payload = HotPatchCompanion.buildCallSitePatch(
+            site = site,
+            remediation = remediation,
+            dialect = state.selectedDialect
+        )
+
+        HotPatchCompanion.copyToClipboard(context, payload)
+        HapticFeedbackManager.playConfirmationTap(context)
+        showSnackbar("⚡ Line ${site.lineNumber} hot-patched to clipboard")
+    }
+
+    fun highlightCallSiteLine(siteIndex: Int?) {
+        _uiState.update { it.copy(highlightedCallSiteIndex = siteIndex) }
+    }
+
+    // ─── Multi-Modal Voice Query to SLM ────────────────────────────────
+
+    fun askVoiceQuery(context: Context) {
+        if (_uiState.value.isVoiceQuerying) return
+
+        _uiState.update { it.copy(isVoiceQuerying = true, voiceQueryAnswer = null, voiceError = null) }
+
+        val queryVoiceHelper = VoiceRecognizerHelper(
+            context = context,
+            onPartialResult = { partial ->
+                _uiState.update { it.copy(voicePartialResult = partial) }
+            },
+            onFinalResult = { question ->
+                _uiState.update { it.copy(voicePartialResult = "", isVoiceListening = false) }
+                processVoiceQuery(context, question)
+            },
+            onError = { error ->
+                _uiState.update {
+                    it.copy(
+                        isVoiceQuerying = false,
+                        isVoiceListening = false,
+                        voiceError = error
+                    )
+                }
+            },
+            onListeningStateChanged = { listening ->
+                _uiState.update { it.copy(isVoiceListening = listening) }
+            }
+        )
+        queryVoiceHelper.startListening()
+    }
+
+    private fun processVoiceQuery(context: Context, question: String) {
+        val state = _uiState.value
+        viewModelScope.launch {
+            try {
+                val manager = localLlmManager ?: LocalLlmInferenceManager(context.applicationContext)
+                localLlmManager = manager
+
+                val assessmentContext = state.assessmentResult?.let {
+                    "Current risk score: ${it.overallScore}/100. Summary: ${it.summary}"
+                } ?: "No assessment run yet."
+
+                val siteContext = state.callSites.take(5).joinToString("\n") { site ->
+                    "Line ${site.lineNumber}: ${site.lineText.trim()} [${site.verdict?.sev?.label ?: "PENDING"}]"
+                }
+
+                val prompt = """<start_of_turn>user
+You are an on-device schema migration assistant. Answer in exactly 1-2 sentences.
+
+Context:
+$assessmentContext
+
+Call Sites:
+$siteContext
+
+Question: $question
+<end_of_turn>
+<start_of_turn>model
+"""
+
+                val answer = withContext(Dispatchers.Default) {
+                    if (manager.isModelAvailable) {
+                        try {
+                            val flow = manager.generateRiskAssessmentFlow(prompt)
+                            var result = ""
+                            flow.collect { result = it }
+                            result.trim()
+                        } catch (e: Exception) {
+                            "Based on the schema analysis: ${state.assessmentResult?.summary ?: "Run the assessment first to get detailed insights."}"
+                        }
+                    } else {
+                        // Heuristic fallback answer
+                        "Based on the schema analysis: ${state.assessmentResult?.summary ?: "Run the assessment first to get detailed insights."}"
+                    }
+                }
+
+                _uiState.update {
+                    it.copy(
+                        voiceQueryAnswer = answer,
+                        isVoiceQuerying = false
+                    )
+                }
+                HapticFeedbackManager.playConfirmationTap(context)
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(
+                        voiceQueryAnswer = "Unable to process query: ${e.localizedMessage}",
+                        isVoiceQuerying = false
+                    )
+                }
+            }
+        }
+    }
+
+    fun dismissVoiceQueryAnswer() {
+        _uiState.update { it.copy(voiceQueryAnswer = null) }
+    }
+
+    // ─── Git Pre-Commit Hook Generator ─────────────────────────────────
+
+    fun setShellType(shellType: GitHookGenerator.ShellType) {
+        _uiState.update { it.copy(selectedShellType = shellType) }
+    }
+
+    fun generateGitHook(): String {
+        val state = _uiState.value
+        val protectedColumns = GitHookGenerator.extractColumnsFromDdl(state.schemaDdl)
+        return GitHookGenerator.generatePreCommitHook(
+            protectedColumns = protectedColumns,
+            dialect = state.selectedDialect,
+            shellType = state.selectedShellType
+        )
+    }
+
+    fun generatePolicyJson(): String {
+        val state = _uiState.value
+        val protectedColumns = GitHookGenerator.extractColumnsFromDdl(state.schemaDdl)
+        return GitHookGenerator.generatePolicyTemplate(protectedColumns)
+    }
+
+    fun copyGitHookToClipboard(context: Context) {
+        val hookScript = generateGitHook()
+        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        val clip = ClipData.newPlainText("SchemaLens Git Pre-Commit Hook", hookScript)
+        clipboard.setPrimaryClip(clip)
+        HapticFeedbackManager.playConfirmationTap(context)
+        showSnackbar("Git pre-commit hook copied to clipboard!")
+    }
+
+    fun exportGitHookFile(context: Context) {
+        val hookScript = generateGitHook()
+        val state = _uiState.value
+        val ext = state.selectedShellType.extension
+        try {
+            val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_SUBJECT, "schemalens-pre-commit$ext")
+                putExtra(Intent.EXTRA_TEXT, hookScript)
+                putExtra(Intent.EXTRA_TITLE, "SchemaLens Git Pre-Commit Hook")
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            val chooser = Intent.createChooser(sendIntent, "Share SchemaLens Pre-Commit Hook")
+            chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            context.startActivity(chooser)
+        } catch (e: Exception) {
+            showSnackbar("Share failed: ${e.localizedMessage}")
+        }
     }
 
     private fun showSnackbar(msg: String) {

@@ -2,7 +2,19 @@ package com.schemalens.app.ui
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.animateIntAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -33,6 +45,7 @@ import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Bolt
 import androidx.compose.material.icons.outlined.Code
+import androidx.compose.material.icons.outlined.ElectricBolt
 import androidx.compose.material.icons.outlined.Layers
 import androidx.compose.material.icons.outlined.Storage
 import androidx.compose.material.icons.outlined.Tune
@@ -55,7 +68,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -78,6 +93,7 @@ import com.schemalens.app.ui.screens.SchemaScreen
 import com.schemalens.app.ui.screens.TraceScreen
 import com.schemalens.app.ui.viewmodel.MainUiState
 import com.schemalens.app.ui.viewmodel.MainViewModel
+import kotlinx.coroutines.delay
 
 @Composable
 fun MainScreen(
@@ -170,11 +186,41 @@ fun MainScreen(
                                         fontWeight = FontWeight.Bold,
                                         letterSpacing = (-0.3).sp
                                     )
-                                    Text(
-                                        text = "production · main",
-                                        color = Color(0xFF8B93A1),
-                                        fontSize = 12.sp
-                                    )
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        Text(
+                                            text = "production · main",
+                                            color = Color(0xFF8B93A1),
+                                            fontSize = 12.sp
+                                        )
+                                        // B5: Health score pill — visible after assessment
+                                        val currentAssessment = uiState.assessmentResult
+                                        if (currentAssessment != null) {
+                                            val pillScore = currentAssessment.overallScore
+                                            val pillColor = when {
+                                                pillScore > 65 -> Color(0xFFE5484D)
+                                                pillScore > 25 -> Color(0xFFF59E0B)
+                                                else -> Color(0xFF3DD68C)
+                                            }
+                                            Box(
+                                                modifier = Modifier
+                                                    .clip(RoundedCornerShape(6.dp))
+                                                    .background(pillColor.copy(alpha = 0.15f))
+                                                    .border(0.5.dp, pillColor.copy(alpha = 0.4f), RoundedCornerShape(6.dp))
+                                                    .padding(horizontal = 5.dp, vertical = 1.dp)
+                                            ) {
+                                                Text(
+                                                    text = "$pillScore",
+                                                    color = pillColor,
+                                                    fontSize = 10.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontFamily = FontFamily.Monospace
+                                                )
+                                            }
+                                        }
+                                    }
                                 }
                             }
 
@@ -491,10 +537,84 @@ fun SchemaStudioReviewContent(
             onAssess = { viewModel.performAssessment(context) }
         )
 
+        // B6: Animated Result Summary Card — slides in after assessment
+        var showResultCard by remember { mutableStateOf(false) }
+        LaunchedEffect(uiState.assessmentResult) {
+            if (uiState.assessmentResult != null) {
+                showResultCard = true
+                delay(8000)
+                showResultCard = false
+            }
+        }
+        AnimatedVisibility(
+            visible = showResultCard && uiState.assessmentResult != null,
+            enter = slideInVertically(initialOffsetY = { it }),
+            exit = slideOutVertically(targetOffsetY = { it })
+        ) {
+            val result = uiState.assessmentResult!!
+            val resultColor = when {
+                result.overallScore > 65 -> Color(0xFFE5484D)
+                result.overallScore > 25 -> Color(0xFFF59E0B)
+                else -> Color(0xFF3DD68C)
+            }
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(Color(0xFF101318))
+                    .border(1.dp, resultColor.copy(alpha = 0.4f), RoundedCornerShape(16.dp))
+                    .clickable {
+                        showResultCard = false
+                        viewModel.selectTab(AppTab.ASSESS)
+                    }
+                    .padding(14.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    // Score badge
+                    Box(
+                        modifier = Modifier
+                            .size(42.dp)
+                            .clip(CircleShape)
+                            .background(resultColor.copy(alpha = 0.15f))
+                            .border(1.dp, resultColor.copy(alpha = 0.5f), CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "${result.overallScore}",
+                            color = resultColor,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = result.summary.take(80),
+                            color = Color.White,
+                            fontSize = 12.sp,
+                            maxLines = 2
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = "View Details →",
+                            color = resultColor,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+        }
+
         // <PreviewSheet />
         PreviewSheet(
             ddlContent = uiState.schemaDdl,
-            onCopyDdl = onCopyDdl
+            onCopyDdl = onCopyDdl,
+            onHotPatch = { viewModel.hotPatchToIde(context) }
         )
     }
 }
@@ -512,9 +632,20 @@ fun PresetCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    // B3: Preset card selection bounce animation
+    val animatedScale by animateFloatAsState(
+        targetValue = if (isSelected) 1.03f else 1f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessLow
+        ),
+        label = "presetCardScale"
+    )
+
     Box(
         modifier = modifier
             .width(118.dp)
+            .scale(animatedScale)
             .clip(RoundedCornerShape(16.dp))
             .background(Color(0xFF101318))
             .border(
@@ -584,21 +715,49 @@ fun MigrationRiskCard(
     onAssess: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val score = uiState.assessmentResult?.overallScore ?: 34
+    val rawScore = uiState.assessmentResult?.overallScore ?: 34
+
+    // B1: Animated score counter — counts up from 0 to final score
+    val animatedScore by animateIntAsState(
+        targetValue = rawScore,
+        animationSpec = tween(durationMillis = 1200, easing = FastOutSlowInEasing),
+        label = "scoreCounter"
+    )
+    val score = animatedScore
+
     val riskColor = when {
-        score > 65 -> Color(0xFFE5484D)
-        score > 25 -> Color(0xFFF59E0B)
+        rawScore > 65 -> Color(0xFFE5484D)
+        rawScore > 25 -> Color(0xFFF59E0B)
         else -> Color(0xFF3DD68C)
     }
     val riskLabel = when {
-        score > 65 -> "Critical risk"
-        score > 25 -> "Moderate risk"
+        rawScore > 65 -> "Critical risk"
+        rawScore > 25 -> "Moderate risk"
         else -> "Low risk"
     }
 
     val breakingCount = uiState.assessmentResult?.sites?.count { it.sev == RiskSeverity.BREAKING } ?: 0
     val warningCount = uiState.assessmentResult?.sites?.count { it.sev == RiskSeverity.RISKY } ?: 3
     val indexesCount = uiState.callSites.size.takeIf { it > 0 } ?: 8
+
+    // B2: Pulsing live badge animation
+    val infiniteTransition = rememberInfiniteTransition(label = "livePulse")
+    val pulseAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.3f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1200, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "liveDotPulse"
+    )
+
+    // B4: Animated progress for glow ring
+    val animatedProgress by animateFloatAsState(
+        targetValue = (rawScore / 100f).coerceIn(0f, 1f),
+        animationSpec = tween(durationMillis = 1200, easing = FastOutSlowInEasing),
+        label = "arcProgress"
+    )
 
     Box(
         modifier = modifier
@@ -624,7 +783,7 @@ fun MigrationRiskCard(
                     fontWeight = FontWeight.SemiBold
                 )
 
-                // "live" pill badge
+                // "live" pill badge with B2 pulsing dot
                 Row(
                     modifier = Modifier
                         .clip(RoundedCornerShape(12.dp))
@@ -638,6 +797,7 @@ fun MigrationRiskCard(
                         modifier = Modifier
                             .size(6.dp)
                             .clip(CircleShape)
+                            .alpha(pulseAlpha)
                             .background(Color(0xFF10B981))
                     )
                     Text(
@@ -651,7 +811,7 @@ fun MigrationRiskCard(
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            // 270° Circular Arc Dial
+            // 270° Circular Arc Dial with B4 glow ring
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -660,11 +820,12 @@ fun MigrationRiskCard(
             ) {
                 Canvas(modifier = Modifier.size(160.dp)) {
                     val strokeWidth = 14.dp.toPx()
+                    val glowStrokeWidth = 28.dp.toPx()
                     val arcSize = size.width - strokeWidth
                     val topLeft = Offset(strokeWidth / 2, strokeWidth / 2)
                     val arcSizeObj = Size(arcSize, arcSize)
 
-                    // 270° Arc: start at 135°, sweep 270°
+                    // 270° background arc
                     drawArc(
                         color = Color(0xFF1F2530),
                         startAngle = 135f,
@@ -675,8 +836,19 @@ fun MigrationRiskCard(
                         style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
                     )
 
+                    // B4: Glow ring — larger, semi-transparent arc behind the progress
+                    val progressSweep = animatedProgress * 270f
+                    drawArc(
+                        color = riskColor.copy(alpha = 0.12f),
+                        startAngle = 135f,
+                        sweepAngle = progressSweep,
+                        useCenter = false,
+                        topLeft = topLeft,
+                        size = arcSizeObj,
+                        style = Stroke(width = glowStrokeWidth, cap = StrokeCap.Round)
+                    )
+
                     // Progress stroke
-                    val progressSweep = (score / 100f).coerceIn(0f, 1f) * 270f
                     drawArc(
                         color = riskColor,
                         startAngle = 135f,
@@ -688,7 +860,7 @@ fun MigrationRiskCard(
                     )
                 }
 
-                // Center label (score + risk level)
+                // Center label (animated score + risk level)
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
@@ -838,6 +1010,7 @@ fun StatBox(
 fun PreviewSheet(
     ddlContent: String,
     onCopyDdl: () -> Unit,
+    onHotPatch: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var isExpanded by remember { mutableStateOf(true) }
@@ -955,23 +1128,46 @@ fun PreviewSheet(
                             }
                         }
 
-                        // Sparkle / Copy action button in bottom right corner
-                        Box(
-                            modifier = Modifier
-                                .align(Alignment.BottomEnd)
-                                .size(32.dp)
-                                .clip(CircleShape)
-                                .background(Color(0xFF14171E))
-                                .border(1.dp, Color(0xFF262C38), CircleShape)
-                            .clickable(onClick = onCopyDdl),
-                            contentAlignment = Alignment.Center
+                        // Action buttons row in bottom right
+                        Row(
+                            modifier = Modifier.align(Alignment.BottomEnd),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Icon(
-                                imageVector = Icons.Outlined.AutoAwesome,
-                                contentDescription = "Copy DDL",
-                                tint = Color(0xFFD1D5DB),
-                                modifier = Modifier.size(16.dp)
-                            )
+                            // ⚡ Hot-Patch to IDE button
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFF0F766E))
+                                    .border(1.dp, Color(0xFF2DD4BF).copy(alpha = 0.5f), CircleShape)
+                                    .clickable(onClick = onHotPatch),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.ElectricBolt,
+                                    contentDescription = "Hot-Patch to IDE",
+                                    tint = Color(0xFF2DD4BF),
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+
+                            // Sparkle / Copy action button
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFF14171E))
+                                    .border(1.dp, Color(0xFF262C38), CircleShape)
+                                    .clickable(onClick = onCopyDdl),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.AutoAwesome,
+                                    contentDescription = "Copy DDL",
+                                    tint = Color(0xFFD1D5DB),
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
                         }
                     }
                 }

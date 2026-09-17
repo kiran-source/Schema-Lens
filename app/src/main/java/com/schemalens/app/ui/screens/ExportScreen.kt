@@ -23,7 +23,9 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.IosShare
+import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilterChip
@@ -40,6 +42,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.schemalens.app.cicd.GitHookGenerator
 import com.schemalens.app.data.Dialect
 import com.schemalens.app.ui.components.AssessmentHistoryCard
 import com.schemalens.app.ui.components.EmptyStateView
@@ -342,6 +345,166 @@ fun ExportScreen(
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
                             text = "Share Report",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp
+                        )
+                    }
+                }
+            }
+        }
+
+        // CI/CD Quality Gate — Git Pre-Commit Hook Generator
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(14.dp))
+                .background(PanelDark)
+                .border(1.dp, BorderDark, RoundedCornerShape(14.dp))
+                .padding(16.dp)
+        ) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = "CI/CD QUALITY GATE",
+                            color = AccentTeal,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace,
+                            letterSpacing = 1.sp
+                        )
+                        Text(
+                            text = "Git Pre-Commit Hook Generator",
+                            color = TextPrimary,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    Icon(
+                        imageVector = Icons.Default.Security,
+                        contentDescription = "CI/CD",
+                        tint = AccentTeal,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Text(
+                    text = "Block unsafe schema migrations at commit time. Auto-generated from your current schema policy.",
+                    color = TextDim,
+                    fontSize = 12.sp,
+                    lineHeight = 17.sp
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Shell type toggle chips
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    GitHookGenerator.ShellType.entries.forEach { shellType ->
+                        FilterChip(
+                            selected = uiState.selectedShellType == shellType,
+                            onClick = { viewModel.setShellType(shellType) },
+                            label = {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Terminal,
+                                        contentDescription = shellType.label,
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                    Text(text = shellType.label, fontSize = 11.sp)
+                                }
+                            },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = AccentTeal.copy(alpha = 0.15f),
+                                selectedLabelColor = AccentTeal,
+                                selectedLeadingIconColor = AccentTeal,
+                                containerColor = PanelNested,
+                                labelColor = TextDim
+                            )
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Code preview of the generated hook
+                val hookPreview = viewModel.generateGitHook()
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(140.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(BgDark)
+                        .border(1.dp, BorderDark, RoundedCornerShape(10.dp))
+                        .padding(10.dp)
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    Text(
+                        text = hookPreview.take(600) + if (hookPreview.length > 600) "\n..." else "",
+                        color = TextPrimary.copy(alpha = 0.85f),
+                        fontSize = 9.5.sp,
+                        fontFamily = FontFamily.Monospace,
+                        lineHeight = 13.sp
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Button(
+                        onClick = { viewModel.copyGitHookToClipboard(context) },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = PanelNested,
+                            contentColor = AccentTeal
+                        ),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, AccentTeal),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ContentCopy,
+                            contentDescription = "Copy Hook",
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Copy Hook",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp
+                        )
+                    }
+
+                    Button(
+                        onClick = { viewModel.exportGitHookFile(context) },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = AccentTeal,
+                            contentColor = BgDark
+                        ),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Share,
+                            contentDescription = "Share Hook",
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Share .pre-commit",
                             fontWeight = FontWeight.Bold,
                             fontSize = 12.sp
                         )
