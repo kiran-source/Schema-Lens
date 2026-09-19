@@ -321,7 +321,7 @@ fun AssessScreen(
                 // Run Assessment Button
                 Button(
                     onClick = { viewModel.performAssessment(context) },
-                    enabled = !uiState.isAssessing && uiState.callSites.isNotEmpty(),
+                    enabled = !uiState.isAssessing,
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = AccentTeal,

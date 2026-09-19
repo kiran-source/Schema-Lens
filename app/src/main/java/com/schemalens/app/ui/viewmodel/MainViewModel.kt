@@ -397,14 +397,23 @@ class MainViewModel(
     fun performAssessment(context: Context? = null) {
         val state = _uiState.value
 
-        if (state.callSites.isEmpty()) {
-            _uiState.update { it.copy(assessmentError = "Trace at least one call site before assessing risk.") }
-            return
+        var effectiveCallSites = state.callSites
+        if (effectiveCallSites.isEmpty()) {
+            val pkg = state.packageName.ifBlank { SampleData.DEFAULT_PACKAGE }
+            val code = state.codeBuffer.ifBlank { SampleData.DEFAULT_CODE_BUFFER }
+            effectiveCallSites = ImportTraceParser.tracePackageUsage(pkg, code)
+            if (effectiveCallSites.isNotEmpty()) {
+                _uiState.update { it.copy(callSites = effectiveCallSites, hasPerformedTrace = true) }
+            } else {
+                _uiState.update { it.copy(assessmentError = "Trace at least one call site before assessing risk.") }
+                return
+            }
         }
 
-        if (state.changeNotes.isBlank()) {
-            _uiState.update { it.copy(assessmentError = "Please dictate or type change notes describing the schema modification.") }
-            return
+        val effectiveChangeNotes = state.changeNotes.ifBlank {
+            SampleData.DEFAULT_CHANGE_NOTES.also { defaultNotes ->
+                _uiState.update { it.copy(changeNotes = defaultNotes) }
+            }
         }
 
         if (context != null) {
@@ -604,18 +613,21 @@ class MainViewModel(
     // --- Preset Loaders ---
 
     fun loadSampleSchema() {
-        val sampleDdl = SampleData.DEFAULT_SCHEMA_DDL
-        val parsedEntities = SchemaParser.parseSchema(sampleDdl)
-        val extractedIds = TextRecognitionHelper.extractIdentifiers(sampleDdl)
+        loadCustomSchemaPreset(SampleData.DEFAULT_SCHEMA_DDL, "E-Commerce (Orders, Products, Users)")
+    }
+
+    fun loadCustomSchemaPreset(ddl: String, presetName: String) {
+        val parsedEntities = SchemaParser.parseSchema(ddl)
+        val extractedIds = TextRecognitionHelper.extractIdentifiers(ddl)
         _uiState.update {
             it.copy(
-                schemaDdl = sampleDdl,
+                schemaDdl = ddl,
                 schemaEntities = parsedEntities,
                 extractedIdentifiers = extractedIds,
                 ocrError = null
             )
         }
-        showSnackbar("Loaded sample schema (Users, Orders, Products tables)")
+        showSnackbar("Loaded $presetName preset")
     }
 
     fun loadSamplePreset() {

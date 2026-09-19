@@ -92,5 +92,62 @@ CREATE TABLE audit_logs (
     FOREIGN KEY (user_id) REFERENCES users(id)
 );
 """.trimIndent()
+
+    val SAAS_AUTH_SCHEMA_DDL: String = """
+CREATE TABLE organizations (
+    id VARCHAR(36) PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    slug VARCHAR(100) UNIQUE NOT NULL,
+    plan VARCHAR(50) DEFAULT 'starter',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE users (
+    id VARCHAR(36) PRIMARY KEY,
+    org_id VARCHAR(36) NOT NULL,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    password_hash VARCHAR(255) NOT NULL,
+    mfa_enabled BOOLEAN DEFAULT FALSE,
+    FOREIGN KEY (org_id) REFERENCES organizations(id)
+);
+
+CREATE TABLE api_keys (
+    id VARCHAR(36) PRIMARY KEY,
+    org_id VARCHAR(36) NOT NULL,
+    key_hash VARCHAR(255) NOT NULL,
+    scopes TEXT DEFAULT 'read',
+    expires_at TIMESTAMP,
+    FOREIGN KEY (org_id) REFERENCES organizations(id)
+);
+""".trimIndent()
+
+    val FINTECH_LEDGER_SCHEMA_DDL: String = """
+CREATE TABLE accounts (
+    id VARCHAR(36) PRIMARY KEY,
+    user_id VARCHAR(36) NOT NULL,
+    account_number VARCHAR(34) UNIQUE NOT NULL,
+    currency VARCHAR(3) DEFAULT 'USD',
+    balance DECIMAL(18, 4) DEFAULT 0.0000,
+    status VARCHAR(20) DEFAULT 'active'
+);
+
+CREATE TABLE ledger_entries (
+    id VARCHAR(36) PRIMARY KEY,
+    account_id VARCHAR(36) NOT NULL,
+    amount DECIMAL(18, 4) NOT NULL,
+    entry_type VARCHAR(10) NOT NULL,
+    reference_id VARCHAR(64) UNIQUE,
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (account_id) REFERENCES accounts(id)
+);
+
+CREATE TABLE compliance_checks (
+    id VARCHAR(36) PRIMARY KEY,
+    account_id VARCHAR(36) NOT NULL,
+    risk_level VARCHAR(20) DEFAULT 'low',
+    verified_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (account_id) REFERENCES accounts(id)
+);
+""".trimIndent()
 }
 

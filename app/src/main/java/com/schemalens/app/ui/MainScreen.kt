@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -127,27 +128,17 @@ fun MainScreen(
         }
     }
 
-    // <main> full-screen, centers the frame on black
+    // Main full-bleed native container with status bar insets
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(Color.Black),
-        contentAlignment = Alignment.Center
+            .background(Color(0xFF090A0C))
+            .statusBarsPadding()
     ) {
-        // Phone frame — max-w-[420px], zinc-950, rounded-[2.5rem]
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .widthIn(max = 420.dp)
-                .clip(RoundedCornerShape(40.dp))
-                .background(Color(0xFF090A0C))
-                .border(1.dp, Color(0xFF1E222A), RoundedCornerShape(40.dp))
-                .statusBarsPadding()
-        ) {
-            Scaffold(
-                modifier = Modifier.fillMaxSize(),
-                containerColor = Color.Transparent,
-                snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
+        Scaffold(
+            modifier = Modifier.fillMaxSize(),
+            containerColor = Color.Transparent,
+            snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
                 topBar = {
                     Column {
                         // <header> top bar
@@ -257,6 +248,46 @@ fun MainScreen(
                             }
                         )
                     }
+                },
+                bottomBar = {
+                    // Next Step Navigation Guidance
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .navigationBarsPadding()
+                            .padding(horizontal = 20.dp, vertical = 8.dp)
+                    ) {
+                        val nextLabel = when (currentStep) {
+                            0 -> "Proceed to AST Trace →"
+                            1 -> "Proceed to Review & Assessment →"
+                            2 -> "Deploy Migration Patch →"
+                            else -> "Return to Schema Review ↺"
+                        }
+                        val targetTab = when (currentStep) {
+                            0 -> AppTab.TRACE
+                            1 -> AppTab.ASSESS
+                            2 -> AppTab.EXPORT
+                            else -> AppTab.ASSESS
+                        }
+                        Button(
+                            onClick = { viewModel.selectTab(targetTab) },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(46.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFF141A24),
+                                contentColor = Color(0xFF2DD4BF)
+                            ),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF2DD4BF).copy(alpha = 0.35f))
+                        ) {
+                            Text(
+                                text = nextLabel,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
                 }
             ) { innerPadding ->
                 Box(
@@ -281,8 +312,8 @@ fun MainScreen(
                                 uiState = uiState,
                                 viewModel = viewModel
                             )
-                            // Step 2: Review (Visual Layout with PresetCards, RiskDial, and PreviewSheet)
-                            2 -> SchemaStudioReviewContent(
+                            // Step 2: Review (Studio Overview + Deep SLM Audit)
+                            2 -> ReviewStepContainer(
                                 uiState = uiState,
                                 viewModel = viewModel,
                                 onOpenSettings = { showApiKeyDialog = true },
@@ -297,8 +328,6 @@ fun MainScreen(
                     }
                 }
             }
-        }
-    }
 
     // Camera Capture Modal
     if (showCameraDialog) {
@@ -327,6 +356,7 @@ fun MainScreen(
                 showApiKeyDialog = false
             }
         )
+    }
     }
 }
 
@@ -433,6 +463,100 @@ fun ProgressStepper(
 }
 
 /**
+ * Unified Step 2 (Review) Container:
+ * Segmented switcher between "Studio Overview" (Presets, 270° Risk Dial, Previews)
+ * and "Deep SLM Audit" (AssessScreen with Gemma 2B Telemetry HUD, Timeline, Schema Diff, Voice Q&A).
+ */
+@Composable
+fun ReviewStepContainer(
+    uiState: MainUiState,
+    viewModel: MainViewModel,
+    onOpenSettings: () -> Unit,
+    onCopyDdl: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var reviewSubTab by remember { mutableIntStateOf(0) }
+
+    Column(modifier = modifier.fillMaxSize()) {
+        // Sub-Navigation Segmented Bar
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 6.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(Color(0xFF12161E))
+                .border(1.dp, Color(0xFF202633), RoundedCornerShape(12.dp))
+                .padding(3.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(9.dp))
+                    .background(if (reviewSubTab == 0) Color(0xFF2DD4BF) else Color.Transparent)
+                    .clickable { reviewSubTab = 0 }
+                    .padding(vertical = 7.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "Studio Overview",
+                    color = if (reviewSubTab == 0) Color(0xFF090A0C) else Color(0xFF8B93A1),
+                    fontSize = 12.sp,
+                    fontWeight = if (reviewSubTab == 0) FontWeight.Bold else FontWeight.Medium
+                )
+            }
+
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(9.dp))
+                    .background(if (reviewSubTab == 1) Color(0xFF2DD4BF) else Color.Transparent)
+                    .clickable { reviewSubTab = 1 }
+                    .padding(vertical = 7.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text(
+                        text = "Deep SLM Audit",
+                        color = if (reviewSubTab == 1) Color(0xFF090A0C) else Color(0xFF8B93A1),
+                        fontSize = 12.sp,
+                        fontWeight = if (reviewSubTab == 1) FontWeight.Bold else FontWeight.Medium
+                    )
+                    if (uiState.assessmentResult != null) {
+                        Box(
+                            modifier = Modifier
+                                .size(6.dp)
+                                .clip(CircleShape)
+                                .background(if (reviewSubTab == 1) Color(0xFF090A0C) else Color(0xFF3DD68C))
+                        )
+                    }
+                }
+            }
+        }
+
+        Crossfade(targetState = reviewSubTab, label = "reviewSubTabCrossfade") { tab ->
+            when (tab) {
+                0 -> SchemaStudioReviewContent(
+                    uiState = uiState,
+                    viewModel = viewModel,
+                    onOpenSettings = onOpenSettings,
+                    onCopyDdl = onCopyDdl,
+                    onViewDetails = { reviewSubTab = 1 }
+                )
+                else -> AssessScreen(
+                    uiState = uiState,
+                    viewModel = viewModel,
+                    onOpenSettings = onOpenSettings
+                )
+            }
+        }
+    }
+}
+
+/**
  * Visual Layout content for Review (Step 2)
  * Contains:
  * - <PresetCards />: Relational, Document, Edge KV
@@ -445,6 +569,7 @@ fun SchemaStudioReviewContent(
     viewModel: MainViewModel,
     onOpenSettings: () -> Unit,
     onCopyDdl: () -> Unit,
+    onViewDetails: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -566,7 +691,7 @@ fun SchemaStudioReviewContent(
                     .border(1.dp, resultColor.copy(alpha = 0.4f), RoundedCornerShape(16.dp))
                     .clickable {
                         showResultCard = false
-                        viewModel.selectTab(AppTab.ASSESS)
+                        onViewDetails()
                     }
                     .padding(14.dp)
             ) {
@@ -600,10 +725,14 @@ fun SchemaStudioReviewContent(
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
-                            text = "View Details →",
+                            text = "View Deep SLM Telemetry →",
                             color = resultColor,
                             fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.clickable {
+                                showResultCard = false
+                                onViewDetails()
+                            }
                         )
                     }
                 }
@@ -1014,6 +1143,14 @@ fun PreviewSheet(
     modifier: Modifier = Modifier
 ) {
     var isExpanded by remember { mutableStateOf(true) }
+    var copiedFeedback by remember { mutableStateOf(false) }
+
+    LaunchedEffect(copiedFeedback) {
+        if (copiedFeedback) {
+            delay(2000)
+            copiedFeedback = false
+        }
+    }
 
     Column(
         modifier = modifier
@@ -1021,7 +1158,7 @@ fun PreviewSheet(
             .padding(horizontal = 20.dp)
     ) {
         Text(
-            text = "Previews",
+            text = "Previews & Schema AST",
             color = Color.White,
             fontSize = 16.sp,
             fontWeight = FontWeight.SemiBold
@@ -1061,20 +1198,20 @@ fun PreviewSheet(
                             Icon(
                                 imageVector = Icons.Outlined.Code,
                                 contentDescription = "SQL file",
-                                tint = Color(0xFF8B93A1),
+                                tint = Color(0xFF2DD4BF),
                                 modifier = Modifier.size(18.dp)
                             )
                         }
 
                         Column {
                             Text(
-                                text = "users.sql",
+                                text = "migration_patch.sql",
                                 color = Color.White,
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.SemiBold
                             )
                             Text(
-                                text = "Generated DDL",
+                                text = "Active Schema & DDL Buffer",
                                 color = Color(0xFF8B93A1),
                                 fontSize = 11.sp
                             )
@@ -1101,38 +1238,64 @@ fun PreviewSheet(
                             .border(1.dp, Color(0xFF181C24), RoundedCornerShape(12.dp))
                             .padding(12.dp)
                     ) {
-                        val ddlLines = listOf(
-                            "01  create table users (",
-                            "02    id uuid primary key default gen_random_uuid(),",
-                            "03    email text unique not null,",
-                            "04    created_at timestamptz default now()",
-                            "05  );"
-                        )
+                        val activeLines = if (ddlContent.isNotBlank()) {
+                            ddlContent.trim().lines().take(12)
+                        } else {
+                            listOf(
+                                "CREATE TABLE users (",
+                                "  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),",
+                                "  email TEXT UNIQUE NOT NULL,",
+                                "  created_at TIMESTAMPTZ DEFAULT now()",
+                                ");"
+                            )
+                        }
 
-                        Column(modifier = Modifier.fillMaxWidth()) {
-                            ddlLines.forEach { line ->
-                                Row {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 36.dp)
+                        ) {
+                            activeLines.forEachIndexed { idx, line ->
+                                val lineNum = String.format("%02d", idx + 1)
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
                                     Text(
-                                        text = line.take(4),
+                                        text = "$lineNum  ",
                                         color = Color(0xFF475569),
                                         fontSize = 11.sp,
                                         fontFamily = FontFamily.Monospace
                                     )
-                                    Text(
-                                        text = line.drop(4),
-                                        color = Color(0xFFCBD5E1),
-                                        fontSize = 11.sp,
-                                        fontFamily = FontFamily.Monospace
-                                    )
+                                    HighlightSqlLine(line = line)
                                 }
+                            }
+                            if (ddlContent.lines().size > 12) {
+                                Text(
+                                    text = "    ... and ${ddlContent.lines().size - 12} more lines",
+                                    color = Color(0xFF64748B),
+                                    fontSize = 10.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    modifier = Modifier.padding(top = 4.dp)
+                                )
                             }
                         }
 
                         // Action buttons row in bottom right
                         Row(
                             modifier = Modifier.align(Alignment.BottomEnd),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
+                            if (copiedFeedback) {
+                                Text(
+                                    text = "Copied! ✓",
+                                    color = Color(0xFF3DD68C),
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+
                             // ⚡ Hot-Patch to IDE button
                             Box(
                                 modifier = Modifier
@@ -1158,7 +1321,10 @@ fun PreviewSheet(
                                     .clip(CircleShape)
                                     .background(Color(0xFF14171E))
                                     .border(1.dp, Color(0xFF262C38), CircleShape)
-                                    .clickable(onClick = onCopyDdl),
+                                    .clickable {
+                                        onCopyDdl()
+                                        copiedFeedback = true
+                                    },
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
@@ -1172,6 +1338,32 @@ fun PreviewSheet(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun HighlightSqlLine(line: String) {
+    val sqlKeywords = setOf("CREATE", "TABLE", "ALTER", "ADD", "DROP", "COLUMN", "PRIMARY", "KEY", "FOREIGN", "REFERENCES", "INDEX", "UNIQUE", "NOT", "NULL", "DEFAULT", "CONSTRAINT", "CHECK", "SELECT", "FROM", "WHERE", "INSERT", "INTO", "VALUES", "UPDATE", "SET")
+    val sqlTypes = setOf("UUID", "TEXT", "VARCHAR", "INT", "INTEGER", "BIGINT", "BOOLEAN", "TIMESTAMPTZ", "TIMESTAMP", "DECIMAL", "SERIAL", "NUMERIC", "JSONB", "JSON")
+
+    val tokens = line.split(" ")
+    Row(modifier = Modifier.horizontalScroll(rememberScrollState())) {
+        tokens.forEachIndexed { i, token ->
+            val clean = token.uppercase().trim(',', ';', '(', ')')
+            val color = when {
+                line.trimStart().startsWith("--") -> Color(0xFF64748B)
+                clean in sqlKeywords -> Color(0xFF2DD4BF)
+                clean in sqlTypes -> Color(0xFFA78BFA)
+                token.startsWith("'") || token.endsWith("'") -> Color(0xFFFBBF24)
+                else -> Color(0xFFCBD5E1)
+            }
+            Text(
+                text = if (i == 0) token else " $token",
+                color = color,
+                fontSize = 11.sp,
+                fontFamily = FontFamily.Monospace
+            )
         }
     }
 }

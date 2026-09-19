@@ -187,12 +187,27 @@ fun ExportScreen(
                             modifier = Modifier.fillMaxSize(),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text(
-                                text = "Run risk assessment to generate a remediation patch.",
-                                color = TextDim,
-                                fontSize = 12.sp,
-                                fontFamily = FontFamily.Monospace
-                            )
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Text(
+                                    text = "No remediation patch generated yet.",
+                                    color = TextDim,
+                                    fontSize = 12.sp,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                                Button(
+                                    onClick = { viewModel.performAssessment(context) },
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = AccentTeal,
+                                        contentColor = BgDark
+                                    ),
+                                    shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    Text("Run Assessment & Generate Patch", fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
                         }
                     }
                 }

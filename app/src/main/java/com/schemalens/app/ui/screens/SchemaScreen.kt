@@ -27,7 +27,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Refresh
@@ -44,7 +46,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import com.schemalens.app.data.SampleData
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -197,13 +201,68 @@ fun SchemaScreen(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // DDL Input Field
+                // Instant Schema Presets Row
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text(
+                        text = "QUICK DEMO PRESETS",
+                        color = TextDim,
+                        fontSize = 10.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.Monospace,
+                        letterSpacing = 0.5.sp
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = { viewModel.loadCustomSchemaPreset(SampleData.DEFAULT_SCHEMA_DDL, "E-Commerce (Orders, Products)") },
+                            shape = RoundedCornerShape(20.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = TextPrimary),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, AccentTeal.copy(alpha = 0.4f)),
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("🛒 E-Comm", fontSize = 11.sp, maxLines = 1)
+                        }
+
+                        OutlinedButton(
+                            onClick = { viewModel.loadCustomSchemaPreset(SampleData.SAAS_AUTH_SCHEMA_DDL, "SaaS Auth (Orgs, Users)") },
+                            shape = RoundedCornerShape(20.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = TextPrimary),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, BorderDark),
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("🔐 Auth", fontSize = 11.sp, maxLines = 1)
+                        }
+
+                        OutlinedButton(
+                            onClick = { viewModel.loadCustomSchemaPreset(SampleData.FINTECH_LEDGER_SCHEMA_DDL, "FinTech (Ledgers, Accounts)") },
+                            shape = RoundedCornerShape(20.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = TextPrimary),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, BorderDark),
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("💳 Ledger", fontSize = 11.sp, maxLines = 1)
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // DDL Input Field with Action Toolbar
+                val clipboardManager = LocalClipboardManager.current
                 OutlinedTextField(
                     value = uiState.schemaDdl,
                     onValueChange = { viewModel.updateSchemaDdl(it) },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(160.dp),
+                        .height(165.dp),
                     label = { Text("Schema DDL / SQL / Whiteboard OCR", fontSize = 12.sp) },
                     textStyle = TextStyle(
                         fontFamily = FontFamily.Monospace,
@@ -219,7 +278,7 @@ fun SchemaScreen(
                     shape = RoundedCornerShape(8.dp)
                 )
 
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -227,25 +286,53 @@ fun SchemaScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "DDL changes update ER graph automatically",
+                        text = "Updates AST & ER graph automatically",
                         color = TextDim,
                         fontSize = 11.sp
                     )
 
-                    OutlinedButton(
-                        onClick = { viewModel.loadSampleSchema() },
-                        shape = RoundedCornerShape(6.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = AccentTeal),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, BorderDark),
-                        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 4.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Refresh,
-                            contentDescription = "Sample",
-                            modifier = Modifier.size(12.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Reset Sample", fontSize = 11.sp)
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        // Quick Paste Button
+                        OutlinedButton(
+                            onClick = {
+                                val text = clipboardManager.getText()?.text
+                                if (!text.isNullOrBlank()) {
+                                    viewModel.updateSchemaDdl(text)
+                                }
+                            },
+                            shape = RoundedCornerShape(6.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = TextPrimary),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, BorderDark),
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.ContentPaste,
+                                contentDescription = "Paste",
+                                tint = AccentTeal,
+                                modifier = Modifier.size(12.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Paste", fontSize = 11.sp)
+                        }
+
+                        // Clear Button
+                        if (uiState.schemaDdl.isNotBlank()) {
+                            OutlinedButton(
+                                onClick = { viewModel.updateSchemaDdl("") },
+                                shape = RoundedCornerShape(6.dp),
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = TextDim),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, BorderDark),
+                                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Clear,
+                                    contentDescription = "Clear",
+                                    modifier = Modifier.size(12.dp)
+                                )
+                                Spacer(modifier = Modifier.width(2.dp))
+                                Text("Clear", fontSize = 11.sp)
+                            }
+                        }
                     }
                 }
             }
