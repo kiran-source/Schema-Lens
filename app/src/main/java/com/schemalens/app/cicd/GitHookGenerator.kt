@@ -10,7 +10,7 @@ import com.schemalens.app.data.Dialect
  * a column without an updated migration file, the commit is blocked locally.
  *
  * Supports both Bash (Linux/Mac) and PowerShell (Windows) variants.
- * Elevates SchemaLens from a hackathon demo into an enterprise-ready security gate.
+ * Elevates SchemaLens into an enterprise-ready security gate.
  */
 object GitHookGenerator {
 

@@ -105,7 +105,7 @@ fun PhaseHeader(
                         )
                     }
                     Text(
-                        text = "v2.0 · AirTrace DB · iQOO '26",
+                        text = "v2.0 · AirTrace DB · Air-Gapped",
                         color = TextDim,
                         fontSize = 11.sp,
                         fontFamily = FontFamily.Monospace

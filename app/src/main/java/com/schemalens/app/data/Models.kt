@@ -79,7 +79,7 @@ data class OcrExtractionResult(
 )
 
 /**
- * Explicit Hackathon Phase Zones.
+ * Explicit Architectural Phase Zones.
  */
 enum class AppZone(val title: String, val badgeText: String, val isNetworkAllowed: Boolean) {
     RED_LIGHT("Red Light Zone", "🔒 on-device · no network", false),

@@ -524,7 +524,7 @@ $patchCode
 ```
 
 ---
-*Report generated automatically by SchemaLens Studio v2.0 · iQOO Hackathon 2026*
+*Report generated automatically by SchemaLens Studio v2.0 · Air-Gapped Schema Governance*
 """.trimIndent()
     }
 
